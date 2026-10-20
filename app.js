@@ -3,7 +3,8 @@ import { EVIDENCE as E, dailyTargets, postWorkout, notificationText, e1rm, autor
 import { MUSCLES, LIBRARY, EQUIPMENT, DAYS, SET_RANGE, buildProgram, muscleFrequency, muscleOrdinal, alternatives, startWeeklySets } from "./program.js";
 import { sendPostWorkout, ensurePermission, permissionState } from "./notify.js";
 import { fresh, migrate } from "./state.js";
-import { EX_IMG } from "./images.js";
+import { thumbHTML, heroHTML, photoHTML } from "./media.js";
+import { clampIndex, exerciseStatus, swipeDir, positionLabel } from "./stepper.js";
 
 const KEY = "massplan.v1"; // unchanged since v1 so saved data carries over; state.js migrates the shape
 const $ = (s, r = document) => r.querySelector(s);
@@ -217,7 +218,7 @@ function today() {
 function startActive() {
   const p = program(), idx = S.nextSession % p.length, s = p[idx], deload = inDeload();
   const plan = planFor(idx);
-  S.active = { sessionIdx: idx, session: { id: s.id, name: s.name, exercises: s.exercises }, startedAt: Date.now(), recovery: "good", deload, rest: null,
+  S.active = { sessionIdx: idx, session: { id: s.id, name: s.name, exercises: s.exercises }, startedAt: Date.now(), recovery: "good", deload, rest: null, cur: 0,
     exercises: Object.fromEntries(s.exercises.map((ex) => {
       const w = progression(ex, lastFor(ex.id), { deload }).weight;
       return [ex.id, { sets: Array.from({ length: plan[ex.id] }, () => ({ weight: w, reps: "", rir: "", done: false })) }];
@@ -226,57 +227,98 @@ function startActive() {
 }
 
 let clockTimer = null;
+/** One exercise per screen. S.active.cur (persisted) is the exercise being shown. */
 function workout() {
   if (!S.active) return workoutPreview();
   const a = S.active, s = a.session, eq = S.profile.equipment;
-  const ids = s.exercises.map((e) => e.id);
+  const ids = s.exercises.map((e) => e.id), n = s.exercises.length;
+  const k = a.cur = clampIndex(a.cur, n), ex = s.exercises[k], isLast = k === n - 1;
+  const x = a.exercises[ex.id], last = lastFor(ex.id), pr = progression(ex, last, { deload: a.deload });
+  const alts = alternatives(ex.id, eq, ids);
+  const next = s.exercises[k + 1];
+  const doneSets = Object.values(a.exercises).reduce((t, e) => t + e.sets.filter((q) => q.done).length, 0);
+  const allSets = Object.values(a.exercises).reduce((t, e) => t + e.sets.length, 0);
   view.innerHTML = `
-  <h1>${esc(s.name)} <span class="small muted" id="clock"></span></h1>
-  ${calibrating() ? calibrationTip() : ""}
-  ${a.deload ? `<p class="small warn">Deload week: same weights, half the sets, stop 3–4 reps short.</p>` : `<p class="small muted">Take hard sets to 1–2 reps in reserve (RIR). Hit the top of the rep range on every set and the weight goes up next time. Ticking a set starts the rest timer.</p>`}
-  ${s.exercises.map((ex, k) => {
-    const x = a.exercises[ex.id], last = lastFor(ex.id), pr = progression(ex, last, { deload: a.deload });
-    const alts = alternatives(ex.id, eq, ids);
-    return `<div class="card" data-ex="${ex.id}" data-k="${k}">
-      <div class="exrow">${thumb(ex)}<div class="exhead"><strong>${esc(ex.name)}</strong>
-        <span class="small muted">${MUSCLES[ex.muscle]} · ${ex.reps[0]}–${ex.reps[1]} reps · ${a.deload ? "RIR 3–4" : "RIR 1–2"} · rest ${Math.round(restSeconds(ex) / 30) / 2} min</span></div></div>
-      ${last ? `<div class="small muted last">Last: ${last.sets.filter((q) => q.done).map((q) => `${q.weight || 0}×${q.reps}${q.rir !== "" && q.rir != null ? ` @${q.rir}` : ""}`).join(", ") || "-"}</div>` : ""}
-      ${progressIndicator(ex, last, pr, a.deload)}
-      ${!last && ex.step > 0 && !a.deload ? `<details class="sw"><summary>Find my starting weight</summary>
-        <p class="small muted">Warm up, then do one set close to failure (ideally 3–10 reps) and enter it.</p>
-        <div class="row"><input type="number" inputmode="decimal" class="sw-w" placeholder="kg" aria-label="${esc(ex.name)} test set kg"><input type="number" inputmode="numeric" class="sw-r" placeholder="reps" aria-label="${esc(ex.name)} test set reps"><button type="button" class="sw-go">Estimate</button></div>
-        <p class="small sw-out"></p></details>` : ""}
-      <div class="small sugg ${pr.increase ? "up" : ""}">${esc(pr.text)}</div>
-      ${alts.length ? `<button type="button" class="swap-btn" aria-label="Swap ${esc(ex.name)}">⇄ Swap exercise (${alts.length} options)</button>` : ""}
-      <div class="set head small muted"><span>#</span><span>${ex.step ? "kg" : "+kg"}</span><span>reps</span><span>RIR</span><span>done</span></div>
-      ${x.sets.map((st, i) => `<div class="set">
-        <span>${i + 1}</span>
-        <input type="number" inputmode="decimal" step="0.5" min="0" data-f="weight" data-i="${i}" value="${esc(st.weight)}" placeholder="${ex.step ? "kg" : "0"}" aria-label="${esc(ex.name)} set ${i + 1} kg">
-        <input type="number" inputmode="numeric" min="0" data-f="reps" data-i="${i}" value="${esc(st.reps)}" class="${st.auto ? "auto" : ""}" placeholder="${ex.reps[0]}–${ex.reps[1]}" aria-label="${esc(ex.name)} set ${i + 1} reps">
-        <input type="number" inputmode="numeric" min="0" max="10" data-f="rir" data-i="${i}" value="${esc(st.rir)}" placeholder="${a.deload ? "3–4" : "1–2"}" aria-label="${esc(ex.name)} set ${i + 1} reps in reserve">
-        <input type="checkbox" data-f="done" data-i="${i}" ${st.done ? "checked" : ""} aria-label="${esc(ex.name)} set ${i + 1} done">
-      </div>`).join("")}
-      <div class="live small" aria-live="polite">${liveText(ex, x.sets)}</div>
-    </div>`;
-  }).join("")}
-  <div class="card"><strong>How recovered did you feel today?</strong>
+  <div class="wtop">
+    <div class="wpos"><strong id="ex-pos">${positionLabel(k, n)}</strong><span class="small muted">${esc(s.name)} · <span id="clock"></span></span>
+      <button type="button" class="small" id="ex-list">All exercises</button></div>
+    <div class="dots" role="tablist" aria-label="Exercises">${s.exercises.map((e, i) => `<button type="button" role="tab" class="dot ${exerciseStatus(a.exercises[e.id].sets)} ${i === k ? "cur" : ""}" data-go="${i}" data-id="${e.id}" aria-selected="${i === k}" aria-label="Exercise ${i + 1}: ${esc(e.name)} (${exerciseStatus(a.exercises[e.id].sets)})"><i></i></button>`).join("")}</div>
+  </div>
+  <div class="card exscreen" data-ex="${ex.id}" data-k="${k}">
+    ${heroHTML(ex)}
+    <h1 class="exname">${esc(ex.name)}</h1>
+    <div class="targets"><span>${MUSCLES[ex.muscle]}</span><span>${x.sets.length} sets</span><span>${ex.reps[0]}–${ex.reps[1]} reps</span><span>${a.deload ? "RIR 3–4" : "RIR 1–2"}</span><span>rest ${Math.round(restSeconds(ex) / 30) / 2} min</span></div>
+    ${a.deload ? `<p class="small warn">Deload week: same weights, half the sets, stop 3–4 reps short.</p>` : ""}
+    ${last ? `<div class="small muted last">Last: ${last.sets.filter((q) => q.done).map((q) => `${q.weight || 0}×${q.reps}${q.rir !== "" && q.rir != null ? ` @${q.rir}` : ""}`).join(", ") || "-"}</div>` : ""}
+    ${progressIndicator(ex, last, pr, a.deload)}
+    ${!last && ex.step > 0 && !a.deload ? `<details class="sw"><summary>Find my starting weight</summary>
+      <p class="small muted">Warm up, then do one set close to failure (ideally 3–10 reps) and enter it.</p>
+      <div class="row"><input type="number" inputmode="decimal" class="sw-w" placeholder="kg" aria-label="${esc(ex.name)} test set kg"><input type="number" inputmode="numeric" class="sw-r" placeholder="reps" aria-label="${esc(ex.name)} test set reps"><button type="button" class="sw-go">Estimate</button></div>
+      <p class="small sw-out"></p></details>` : ""}
+    <div class="small sugg ${pr.increase ? "up" : ""}">${esc(pr.text)}</div>
+    ${alts.length ? `<button type="button" class="swap-btn" aria-label="Swap ${esc(ex.name)}">⇄ Swap exercise (${alts.length} options)</button>` : ""}
+    <div class="set head small muted"><span>#</span><span>${ex.step ? "kg" : "+kg"}</span><span>reps</span><span>RIR</span><span>done</span></div>
+    ${x.sets.map((st, i) => `<div class="set">
+      <span>${i + 1}</span>
+      <input type="number" inputmode="decimal" step="0.5" min="0" data-f="weight" data-i="${i}" value="${esc(st.weight)}" placeholder="${ex.step ? "kg" : "0"}" aria-label="${esc(ex.name)} set ${i + 1} kg">
+      <input type="number" inputmode="numeric" min="0" data-f="reps" data-i="${i}" value="${esc(st.reps)}" class="${st.auto ? "auto" : ""}" placeholder="${ex.reps[0]}–${ex.reps[1]}" aria-label="${esc(ex.name)} set ${i + 1} reps">
+      <input type="number" inputmode="numeric" min="0" max="10" data-f="rir" data-i="${i}" value="${esc(st.rir)}" placeholder="${a.deload ? "3–4" : "1–2"}" aria-label="${esc(ex.name)} set ${i + 1} reps in reserve">
+      <input type="checkbox" data-f="done" data-i="${i}" ${st.done ? "checked" : ""} aria-label="${esc(ex.name)} set ${i + 1} done">
+    </div>`).join("")}
+    <div class="live small" aria-live="polite">${liveText(ex, x.sets)}</div>
+    ${k === 0 && !a.deload ? `<p class="small muted">Take hard sets to 1–2 reps in reserve (RIR). Hit the top of the rep range on every set and the weight goes up next time. Ticking a set starts the rest timer.</p>` : ""}
+    ${k === 0 && calibrating() ? calibrationTip() : ""}
+  </div>
+  ${isLast ? `<div class="card" id="finish-card"><strong>Last exercise. How recovered did you feel today?</strong>
     <div class="seg" id="recovery">${["good", "ok", "poor"].map((r) => `<button type="button" data-r="${r}" class="${a.recovery === r ? "on" : ""}">${r[0].toUpperCase() + r.slice(1)}</button>`).join("")}</div>
     <p class="small muted">Good + performance held or up: one set is added next week (at most +1 per muscle per week). Poor or performance down: volume backs off.</p>
+    <p class="small" id="finish-count">${doneSets} of ${allSets} sets ticked${doneSets < allSets ? ` <span class="muted">(unticked sets aren't counted)</span>` : ""}</p>
+    <p id="finish-err" class="err" hidden>Tick at least one set as done first, or discard the workout.</p>
+  </div>` : ""}
+  <div class="wnav">
+    <button type="button" id="ex-back" ${k === 0 ? "disabled" : ""} aria-label="Back to the previous exercise">← Back</button>
+    ${isLast ? `<button class="primary" id="finish">Finish workout</button>` : `<button type="button" class="primary ${exerciseStatus(x.sets) === "done" ? "pulse" : ""}" id="ex-next" aria-label="Next exercise: ${esc(next.name)}">Next exercise →<span class="small">${esc(next.name)}</span></button>`}
   </div>
-  <p id="finish-err" class="err" hidden>Tick at least one set as done first, or discard the workout.</p>
-  <button class="primary" id="finish">Finish workout</button>
+  <p class="small muted center">Swipe left or right to change exercise.</p>
   <p><button class="small" id="discard">Discard workout</button></p>`;
 
+  const goEx = (i) => { a.cur = clampIndex(i, n); save(); workout(); window.scrollTo(0, 0); };
+  view.querySelectorAll(".dots [data-go]").forEach((b) => b.onclick = () => goEx(+b.dataset.go));
+  $("#ex-back").onclick = () => goEx(k - 1);
+  if ($("#ex-next")) $("#ex-next").onclick = () => goEx(k + 1);
+  $("#ex-list").onclick = () => {
+    const sh = $("#lightbox");
+    sh.innerHTML = `<div class="lb-card sheet" role="dialog" aria-modal="true" aria-label="All exercises">
+      <div class="lb-head"><strong>All exercises</strong><button type="button" class="lb-x" aria-label="Close">✕</button></div>
+      ${s.exercises.map((e, i) => { const st = a.exercises[e.id].sets, d = st.filter((q) => q.done).length;
+        return `<div class="altrow">${thumbHTML(e)}<button type="button" class="ov-pick ${i === k ? "on" : ""}" data-go="${i}"><b>${i + 1}. ${esc(e.name)}</b><span class="small muted">${d}/${st.length} sets done · ${exerciseStatus(st) === "done" ? "✓ done" : exerciseStatus(st) === "partial" ? "in progress" : "to do"}</span></button></div>`; }).join("")}</div>`;
+    sh.hidden = false;
+    const close = () => { sh.hidden = true; sh.innerHTML = ""; };
+    sh.querySelector(".lb-x").onclick = close; sh.onclick = (e) => { if (e.target === sh) close(); };
+    sh.querySelectorAll(".ov-pick").forEach((p) => p.onclick = () => { close(); goEx(+p.dataset.go); });
+  };
+  // optional swipe (ignored when it starts on an input/button, so typing and ticking never change screens)
+  const scr = view.querySelector(".exscreen"); let t0 = null;
+  scr.addEventListener("touchstart", (e) => { t0 = e.target.closest("input,button,select,summary,details") ? null : { x: e.touches[0].clientX, y: e.touches[0].clientY }; }, { passive: true });
+  scr.addEventListener("touchend", (e) => {
+    if (!t0) return; const t = e.changedTouches[0], d = swipeDir(t.clientX - t0.x, t.clientY - t0.y); t0 = null;
+    if (d === -1 && k < n - 1) goEx(k + 1); else if (d === 1 && k > 0) goEx(k - 1);
+  }, { passive: true });
+
   view.querySelectorAll("[data-ex] .set input").forEach((inp) => inp.addEventListener("input", () => {
-    const card = inp.closest("[data-ex]"), exId = card.dataset.ex, ex = s.exercises[+card.dataset.k];
-    const sets = a.exercises[exId].sets, i = +inp.dataset.i, st = sets[i], f = inp.dataset.f;
+    const card = inp.closest("[data-ex]");
+    const sets = x.sets, i = +inp.dataset.i, st = sets[i], f = inp.dataset.f;
     if (f === "done") {
       st.done = inp.checked;
       if (st.done && (st.reps === "" || st.reps == null)) { // prefill the LOW end; flagged so it never counts as a top-of-range set
         st.reps = ex.reps[0]; st.auto = true;
         const r = inp.parentElement.querySelector('[data-f="reps"]'); r.value = st.reps; r.classList.add("auto");
       }
-      if (st.done) { primeAudio(); startRest(restSeconds(ex), i + 1 < sets.length ? `${ex.name}: next set ${i + 2} of ${sets.length}` : `${ex.name} done: next exercise`); }
+      if (st.done) { primeAudio(); startRest(restSeconds(ex), i + 1 < sets.length ? `${ex.name}: next set ${i + 2} of ${sets.length}` : next ? `${ex.name} done. Next: ${next.name}` : `${ex.name} done: finish when ready`); }
+      const stt = exerciseStatus(sets), dot = view.querySelector(`.dots [data-go="${k}"]`);
+      if (dot) { dot.classList.remove("todo", "partial", "done"); dot.classList.add(stt); }
+      $("#ex-next")?.classList.toggle("pulse", stt === "done");
+      const fc = $("#finish-count"); if (fc) { const dn = Object.values(a.exercises).reduce((t, e) => t + e.sets.filter((q) => q.done).length, 0); fc.textContent = `${dn} of ${allSets} sets ticked`; }
     } else {
       const v = inp.value === "" ? "" : parseFloat(inp.value);
       st[f] = v;
@@ -289,22 +331,21 @@ function workout() {
     save();
   }));
   view.querySelectorAll(".sw-go").forEach((btn) => btn.onclick = () => {
-    const card = btn.closest("[data-ex]"), ex = s.exercises[+card.dataset.k], out = card.querySelector(".sw-out");
+    const card = btn.closest("[data-ex]"), out = card.querySelector(".sw-out");
     const r = startingWeight(ex, card.querySelector(".sw-w").value, card.querySelector(".sw-r").value);
     if (!r) { out.textContent = "Enter the weight and reps (1–30) of your test set."; out.className = "small sw-out err"; return; }
-    a.exercises[ex.id].sets.forEach((o, j) => { if (!o.done) { o.weight = r.weight; const el = card.querySelector(`[data-f="weight"][data-i="${j}"]`); if (el) el.value = r.weight; } });
+    x.sets.forEach((o, j) => { if (!o.done) { o.weight = r.weight; const el = card.querySelector(`[data-f="weight"][data-i="${j}"]`); if (el) el.value = r.weight; } });
     out.className = "small sw-out";
     out.innerHTML = `Estimated 1RM <b>${r.e1rm} kg</b> (Epley) → work at <b class="up">${r.weight} kg</b>: your ~${r.rm}-rep max, so ${r.targetReps} reps leaves ~2 in reserve. Filled into every set.${r.inaccurate ? ` <span class="warn">Over 12 reps the estimate is rough; adjust after the first set.</span>` : ""}`;
     save();
   });
   view.querySelectorAll(".swap-btn").forEach((btn) => btn.onclick = () => {
-    const card = btn.closest("[data-ex]"), k = +card.dataset.k, old = s.exercises[k];
-    const alts = alternatives(old.id, eq, s.exercises.map((e) => e.id));
+    const old = s.exercises[k];
     const sh = $("#lightbox");
     sh.innerHTML = `<div class="lb-card sheet" role="dialog" aria-modal="true" aria-label="Swap ${esc(old.name)}">
       <div class="lb-head"><strong>Swap ${esc(old.name)}</strong><button type="button" class="lb-x" aria-label="Close">✕</button></div>
       <p class="small muted">Same muscle (${MUSCLES[old.muscle]}), works with your equipment. Tap a photo to see it bigger.</p>
-      ${alts.map((o) => `<div class="altrow">${thumb(o)}<button type="button" class="alt-pick" data-swap="${o.id}"><b>${esc(o.name)}</b><span class="small muted">${o.reps[0]}–${o.reps[1]} reps · ${o.kind === "C" ? "compound" : "isolation"}</span></button></div>`).join("")}</div>`;
+      ${alts.map((o) => `<div class="altrow">${thumbHTML(o)}<button type="button" class="alt-pick" data-swap="${o.id}"><b>${esc(o.name)}</b><span class="small muted">${o.reps[0]}–${o.reps[1]} reps · ${o.kind === "C" ? "compound" : "isolation"}</span></button></div>`).join("")}</div>`;
     sh.hidden = false;
     const close = () => { sh.hidden = true; sh.innerHTML = ""; };
     sh.querySelector(".lb-x").onclick = close; sh.onclick = (e) => { if (e.target === sh) close(); };
@@ -326,8 +367,8 @@ function workout() {
     a.recovery = b.dataset.r; save();
     view.querySelectorAll("#recovery button").forEach((x) => x.classList.toggle("on", x === b));
   });
-  $("#discard").onclick = () => { if (confirm("Discard this workout?")) { S.active = null; save(); go("today"); } };
-  $("#finish").onclick = finishWorkout;
+  $("#discard").onclick = () => { if (confirm("Discard this workout?")) { S.active = null; save(); restTick(); go("today"); } };
+  if ($("#finish")) $("#finish").onclick = finishWorkout;
   clearInterval(clockTimer);
   const tick = () => { const c = $("#clock"); if (!c || !S.active) return clearInterval(clockTimer); c.textContent = Math.floor((Date.now() - S.active.startedAt) / 60000) + " min"; };
   tick(); clockTimer = setInterval(tick, 15000);
@@ -337,23 +378,10 @@ function workout() {
 const calibrating = () => !S.history.length || Date.now() - Date.parse(S.history[0].date) < 7 * DAY;
 const calibrationTip = () => `<div class="card warnb" id="calib"><strong>Calibration week</strong>
   <p class="small">Warm up with 2–3 lighter sets. Pick a weight you can lift for the rep range with 1–2 reps left, and adjust it set to set. New exercise? Tap <b>Find my starting weight</b>. Next week the app takes over the numbers.</p></div>`;
-// ---------- exercise photos ----------
-const MUSCLE_ICON = `<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path fill="currentColor" d="M2 10h2V8h2v8H4v-2H2zm4-3h2v10H6zm10 0h2v10h-2zm2 1h2v2h2v4h-2v2h-2zM8 11h8v2H8z"/></svg>`;
-/** Small start-position thumbnail; tap opens start → finish full size. Fallback: muscle-group icon. */
-function thumb(ex) {
-  const im = EX_IMG[ex.id];
-  if (!im) return `<div class="exthumb fallback" aria-label="${esc(MUSCLES[ex.muscle])} exercise">${MUSCLE_ICON}<span>${esc(MUSCLES[ex.muscle])}</span></div>`;
-  return `<button type="button" class="exthumb" data-img="${ex.id}" aria-label="Show how to do ${esc(ex.name)}"><img src="${im[0]}" alt="" width="72" height="72" loading="lazy" decoding="async"></button>`;
-}
+// ---------- exercise photos (rendering lives in media.js) ----------
 function openPhoto(id) {
-  const im = EX_IMG[id], ex = LIBRARY[id]; if (!im) return;
-  const lb = $("#photo");
-  lb.innerHTML = `<div class="lb-card" role="dialog" aria-modal="true" aria-label="${esc(ex.name)}">
-    <div class="lb-head"><strong>${esc(ex.name)}</strong><button type="button" class="lb-x" aria-label="Close">✕</button></div>
-    <img src="${im[0]}" alt="${esc(ex.name)}: start and finish positions">
-    <div class="lb-cap small"><span>Start</span><span>Finish</span></div>
-    <p class="small muted">${ex.reps[0]}–${ex.reps[1]} reps, controlled, full range. Photo: “${esc(im[1])}”, free-exercise-db (public domain).</p></div>`;
-  lb.hidden = false;
+  const ex = LIBRARY[id], html = ex && photoHTML(ex); if (!html) return;
+  const lb = $("#photo"); lb.innerHTML = html; lb.hidden = false;
   const close = () => { lb.hidden = true; lb.innerHTML = ""; };
   lb.querySelector(".lb-x").onclick = close; lb.onclick = (e) => { if (e.target === lb) close(); };
   lb.querySelector(".lb-x").focus();
@@ -363,7 +391,7 @@ document.addEventListener("keydown", (e) => {
   const top = !$("#photo").hidden ? $("#photo") : !$("#lightbox").hidden ? $("#lightbox") : null;
   if (top) { top.hidden = true; top.innerHTML = ""; }
 });
-document.addEventListener("click", (e) => { const b = e.target.closest?.(".exthumb[data-img]"); if (b) openPhoto(b.dataset.img); });
+document.addEventListener("click", (e) => { const b = e.target.closest?.(".exthumb[data-img],.exhero[data-img]"); if (b) openPhoto(b.dataset.img); });
 
 const unitW = (ex, w) => (ex.step ? `${w} kg` : w ? `+${w} kg` : "bodyweight");
 /** Last session vs the top of the rep range: a bar + "N more reps to go heavier", or the GO HEAVIER badge. */
@@ -393,7 +421,7 @@ function workoutPreview() {
   <h1>${esc(s.name)}</h1>
   <p class="small muted">Up next. Swap exercises once you start; swaps are remembered.</p>
   ${calibrating() ? calibrationTip() : ""}
-  ${s.exercises.map((ex) => `<div class="card slim" data-pv="${ex.id}"><div class="exrow">${thumb(ex)}<div class="exhead"><strong>${esc(ex.name)}</strong>
+  ${s.exercises.map((ex) => `<div class="card slim" data-pv="${ex.id}"><div class="exrow">${thumbHTML(ex)}<div class="exhead"><strong>${esc(ex.name)}</strong>
     <span class="small muted">${plan[ex.id]} sets × ${ex.reps[0]}–${ex.reps[1]} reps · ${MUSCLES[ex.muscle]}</span></div></div>
     ${progressIndicator(ex, lastFor(ex.id), progression(ex, lastFor(ex.id), { deload }), deload)}
     <div class="small sugg">${esc(progression(ex, lastFor(ex.id), { deload }).text)}</div></div>`).join("")}

@@ -12,6 +12,12 @@ await new Promise((r) => setTimeout(r, 800));
 const results = [];
 const ok = (name) => { results.push(name); console.log("PASS", name); };
 
+// one exercise per screen: helpers to reach a given exercise / the last screen
+const showEx = async (page, id) => { if (!(await page.locator(`[data-ex="${id}"]`).count())) await page.click(`.dots [data-id="${id}"]`); await page.waitForSelector(`[data-ex="${id}"]`); return page.locator(`[data-ex="${id}"]`); };
+const toLast = async (page) => { await page.locator(".dots [data-go]").last().click(); await page.waitForSelector("#finish"); };
+const eachEx = async (page, fn) => { const n = await page.locator(".dots [data-go]").count();
+  for (let i = 0; i < n; i++) { await page.click(`.dots [data-go="${i}"]`); await page.waitForSelector(`.exscreen[data-k="${i}"]`); await fn(page.locator(".exscreen"), await page.locator(".exscreen").getAttribute("data-ex")); } };
+
 const UNLOCK = `try { if (location.origin.startsWith("http")) localStorage.setItem("getjacked.unlocked", "1"); } catch {}`;
 const mock = (grant, unlock = true) => `
   ${unlock ? UNLOCK : ""}
@@ -35,10 +41,11 @@ async function runFinish(browser, grant) {
   await page.click("#ob-go");
   await page.waitForSelector("#start");
   await page.click("#start");
-  await page.waitForSelector("#finish");
-  const boxes = page.locator('input[data-f="done"]');
-  const n = await boxes.count();
-  for (let i = 0; i < n; i++) { await page.locator('input[data-f="weight"]').nth(i).fill("50"); await boxes.nth(i).check(); }
+  await page.waitForSelector("#ex-pos");
+  let n = 0;
+  await eachEx(page, async (card) => { const k = await card.locator('input[data-f="done"]').count(); n += k;
+    for (let i = 0; i < k; i++) { await card.locator('input[data-f="weight"]').nth(i).fill("50"); await card.locator('input[data-f="done"]').nth(i).check(); } });
+  await toLast(page);
   await page.evaluate(() => { window.__massplan.state.active.startedAt = Date.now() - 75 * 60000; });
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.click("#finish");
@@ -114,16 +121,16 @@ try {
     const page = await ctx.newPage();
     const errors = []; page.on("pageerror", (e) => errors.push(String(e)));
     await page.goto(BASE); await page.fill("#bw", "80"); await page.click("#ob-go");
-    await page.click("#start"); await page.waitForSelector("#finish");
+    await page.click("#start"); await page.waitForSelector("#ex-pos"); await toLast(page);
     await page.click("#finish");
     assert.equal(await page.isVisible("#finish-err"), true, "empty finish shows an error");
     let s = await page.evaluate(() => window.__massplan.state);
     assert.equal(s.history.length, 0); assert.ok(s.active, "workout still active"); assert.equal(s.weeklySets.chest, 14);
     // tick only the bench sets: chest trained, back/arms/delts skipped
-    const bench = page.locator('[data-ex="bench"]');
+    const bench = await showEx(page, "bench");
     const nb = await bench.locator('input[data-f="done"]').count();
     for (let i = 0; i < nb; i++) { await bench.locator('input[data-f="weight"]').nth(i).fill("60"); await bench.locator('input[data-f="done"]').nth(i).check(); }
-    await page.click("#finish"); await page.waitForSelector("#fallback-card");
+    await toLast(page); await page.click("#finish"); await page.waitForSelector("#fallback-card");
     s = await page.evaluate(() => window.__massplan.state);
     assert.equal(s.history.length, 1); assert.equal(s.weeklySets.chest, 15); assert.equal(s.weeklySets.back, 14); assert.equal(s.weeklySets.biceps, 10);
     ok("empty finish refused; only trained muscles get volume changes");
@@ -192,16 +199,15 @@ try {
     await page.click("#ob-go"); await page.waitForSelector("#start");
   };
   const doSession = async (page, { only, reps = "10", weight = "50" } = {}) => {
-    await page.goto(BASE + "#/today"); await page.waitForSelector("#start"); await page.click("#start"); await page.waitForSelector("#finish");
-    const cards = page.locator("[data-ex]");
-    for (let c = 0; c < await cards.count(); c++) {
-      const card = cards.nth(c); if (only && !only.includes(await card.getAttribute("data-ex"))) continue;
+    await page.goto(BASE + "#/today"); await page.waitForSelector("#start"); await page.click("#start"); await page.waitForSelector("#ex-pos");
+    await eachEx(page, async (card, id) => {
+      if (only && !only.includes(id)) return;
       await card.locator('[data-f="weight"]').first().fill(weight);
       const n = await card.locator('[data-f="done"]').count();
       for (let i = 0; i < n; i++) { await card.locator('[data-f="reps"]').nth(i).fill(reps); await card.locator('[data-f="done"]').nth(i).check(); }
-    }
+    });
     await page.click("#rest-skip").catch(() => {});
-    await page.click("#finish"); await page.waitForSelector("#fallback-card");
+    await toLast(page); await page.click("#finish"); await page.waitForSelector("#fallback-card");
   };
 
   // 4) workout: Start button, weight carry, RIR, rest timer (+/-15s, beep/vibrate, sticky), auto reps, swap
@@ -210,17 +216,17 @@ try {
     await onboard(page);
     await page.click('#nav a[href="#/workout"]'); await page.waitForSelector("#start-workout");
     assert.equal((await state(page)).active, null, "Workout tab doesn't auto-start");
-    await page.click("#start-workout"); await page.waitForSelector("#finish");
+    await page.click("#start-workout"); await page.waitForSelector("#ex-pos");
     assert.ok(await page.isVisible("#calib"), "calibration week tip");
     for (const [id, w, r, want] of [["csrow", "60", "10", "60"], ["inclinedb", "30", "8", "28"]]) {
-      const card = page.locator(`[data-ex="${id}"]`);
+      const card = await showEx(page, id);
       await card.locator("details.sw summary").click();
       await card.locator(".sw-w").fill(w); await card.locator(".sw-r").fill(r); await card.locator(".sw-go").click();
       assert.deepEqual([...new Set(await card.locator('[data-f="weight"]').evaluateAll((els) => els.map((e) => e.value)))], [want], `${id} starting weight`);
       assert.match(await card.locator(".sw-out").textContent(), new RegExp(`work at ${want} kg`));
     }
     ok("calibration-week tip; starting-weight helper prefills 60 kg (row, 2.5 kg steps) / 28 kg (dumbbells, 2 kg steps)");
-    const bench = page.locator('[data-ex="bench"]');
+    const bench = await showEx(page, "bench");
     await bench.locator('[data-f="weight"]').first().fill("60");
     assert.deepEqual(await bench.locator('[data-f="weight"]').evaluateAll((els) => els.map((e) => e.value)), Array((await bench.locator('[data-f="weight"]').count())).fill("60"), "weight carried");
     assert.equal(await bench.locator('[data-f="rir"]').first().getAttribute("placeholder"), "1–2");
@@ -243,32 +249,34 @@ try {
     assert.equal(await bench.locator('[data-f="reps"]').nth(1).inputValue(), "6", "empty reps prefilled with the low end");
     let s = await state(page);
     assert.equal(s.active.exercises.bench.sets[1].auto, true);
-    await page.locator('[data-ex="latraise"] [data-f="done"]').first().check();
+    await showEx(page, "latraise"); await page.locator('[data-ex="latraise"] [data-f="done"]').first().check();
     assert.equal(await page.textContent("#rest-time"), "1:30", "isolation rest 1.5 min");
     await page.click("#rest-skip"); assert.equal(await page.isVisible("#rest"), false);
     ok("Workout tab shows Start; weight carries; RIR saved; rest timer 3:00/1:30, ±15s, beep+vibrate, sticky; empty reps -> low end");
     // exercise photo: thumbnail loads from the bundle, tap -> start/finish full size
-    const thumbOk = await page.locator('[data-ex="bench"] .exthumb img').evaluate((i) => i.complete && i.naturalWidth > 0 && !i.src.startsWith("http") || new URL(i.src).origin === location.origin);
+    await showEx(page, "bench");
+    const thumbOk = await page.locator('[data-ex="bench"] .exhero img').evaluate((i) => i.complete && i.naturalWidth > 0 && !i.src.startsWith("http") || new URL(i.src).origin === location.origin);
     assert.ok(thumbOk, "bench thumbnail from the app's own origin");
-    await page.locator('[data-ex="bench"] .exthumb').click(); await page.waitForSelector("#photo:not([hidden]) img");
+    await page.locator('[data-ex="bench"] .exhero').click(); await page.waitForSelector("#photo:not([hidden]) img");
     assert.ok(await page.locator("#photo img").evaluate((i) => new Promise((r) => i.complete ? r(i.naturalWidth) : (i.onload = () => r(i.naturalWidth)))) > 300);
     assert.match(await page.textContent("#photo"), /Start.*Finish/s);
     await page.click("#photo .lb-x"); assert.equal(await page.isVisible("#photo"), false);
     // swap sheet lists alternatives with photos (or the muscle-icon fallback)
-    await page.locator('[data-ex="latraise"] .swap-btn').click(); await page.waitForSelector("#lightbox:not([hidden]) .altrow");
+    await showEx(page, "latraise"); await page.locator('[data-ex="latraise"] .swap-btn').click(); await page.waitForSelector("#lightbox:not([hidden]) .altrow");
     assert.ok(await page.locator('#lightbox .altrow .exthumb img').count() >= 2, "alternatives have photos");
     assert.equal(await page.locator('#lightbox .altrow .exthumb.fallback').count(), 1, "machine lateral raise uses the fallback icon");
     await page.locator('#lightbox .altrow .exthumb[data-img="cablelat"]').click(); await page.waitForSelector("#photo:not([hidden])");
     await page.keyboard.press("Escape"); assert.equal(await page.isVisible("#photo"), false); assert.ok(await page.isVisible("#lightbox"), "photo closes back to the swap list");
     await page.click("#lightbox .lb-x"); assert.equal(await page.isVisible("#lightbox"), false);
     ok("exercise photos: thumbnail, tap to enlarge start/finish, swap sheet shows photos + fallback icon");
-    await page.locator('[data-ex="inclinedb"] .swap-btn').click();
+    await showEx(page, "inclinedb"); await page.locator('[data-ex="inclinedb"] .swap-btn').click();
     await page.locator('#lightbox [data-swap="cablefly"]').click();
     await page.waitForSelector('[data-ex="cablefly"]');
     s = await state(page);
     assert.equal(s.swaps["upperA:chestA2"], "cablefly"); assert.ok(!s.active.exercises.inclinedb);
+    await showEx(page, "bench");
     for (let i = 2; i < await bench.locator('[data-f="done"]').count(); i++) { await bench.locator('[data-f="reps"]').nth(i).fill("10"); await bench.locator('[data-f="done"]').nth(i).check(); }
-    await page.click("#finish"); await page.waitForSelector("#fallback-card");
+    await toLast(page); await page.click("#finish"); await page.waitForSelector("#fallback-card");
     s = await state(page);
     assert.equal(s.history[0].exercises.bench.sets[0].rir, 2);
     await page.evaluate(() => { const S = window.__massplan.state; S.nextSession = 0; localStorage.setItem("massplan.v1", JSON.stringify(S)); });
@@ -277,7 +285,7 @@ try {
     assert.ok(pv.includes("Cable fly") && !pv.includes("Incline dumbbell press"), "swap remembered");
     assert.ok(pv.includes("Log your reps"), "auto-filled reps don't count as top of range");
     assert.match(await page.locator('[data-pv="bench"] .prog').textContent(), /4 more reps to go heavier/);
-    await page.click("#start-workout"); await page.waitForSelector("#finish");
+    await page.click("#start-workout"); await page.waitForSelector('[data-ex="bench"]');
     assert.equal(await page.locator('[data-ex="bench"] [data-f="weight"]').first().inputValue(), "60", "no increase from auto reps");
     assert.match(await page.textContent('[data-ex="bench"] .ptext'), /4 more reps to go heavier/);
     assert.equal(await page.isVisible('[data-ex="bench"] details.sw'), false, "no starting-weight helper once there's history");
@@ -287,14 +295,63 @@ try {
     await b2.locator('[data-f="done"]').nth(nb2 - 1).check();
     assert.match(await b2.locator(".live").textContent(), /Earned! Next time: 62.5 kg/);
     await page.click("#rest-skip");
-    await page.click("#finish"); await page.waitForSelector("#fallback-card");
+    await toLast(page); await page.click("#finish"); await page.waitForSelector("#fallback-card");
     await page.evaluate(() => { const S = window.__massplan.state; S.nextSession = 0; localStorage.setItem("massplan.v1", JSON.stringify(S)); });
-    await page.reload(); await page.goto(BASE + "#/workout"); await page.waitForSelector("#start-workout"); await page.click("#start-workout"); await page.waitForSelector("#finish");
+    await page.reload(); await page.goto(BASE + "#/workout"); await page.waitForSelector("#start-workout"); await page.click("#start-workout"); await page.waitForSelector('[data-ex="bench"]');
     assert.equal(await page.textContent('[data-ex="bench"] .badge'), "GO HEAVIER: 62.5 kg");
     assert.equal(await page.locator('[data-ex="bench"] [data-f="weight"]').first().inputValue(), "62.5", "earned weight prefilled");
     ok("progression indicator: '4 more reps to go heavier' bar, live 'Earned! Next time: 62.5 kg', then GO HEAVIER badge + prefill");
     assert.equal(errors.length, 0, errors.join("\n"));
     ok("swap persists for future sessions; progression ignores auto-filled reps");
+    await ctx.close();
+  }
+
+  // 4b) one exercise per screen: position + dots, Next/Back, jump via dots and the overview list, swipe,
+  //     position persists across reloads, rest timer keeps running across exercise changes, last screen = recovery + Finish
+  {
+    const { ctx, page, errors } = await fresh({ clock: true });
+    await onboard(page);
+    await page.click("#start"); await page.waitForSelector("#ex-pos");
+    const n = await page.locator(".dots [data-go]").count();
+    assert.equal(await page.textContent("#ex-pos"), `Exercise 1 of ${n}`); assert.equal(await page.locator(".exscreen").count(), 1, "one exercise on screen");
+    assert.equal(await page.isDisabled("#ex-back"), true, "Back disabled on the first exercise");
+    assert.equal(await page.isVisible("#finish"), false, "no Finish before the last exercise");
+    assert.ok(await page.locator(".exscreen .exhero img").count(), "big image");
+    const first = await page.getAttribute(".exscreen", "data-ex");
+    await page.locator('.exscreen [data-f="weight"]').first().fill("60"); await page.locator('.exscreen [data-f="reps"]').first().fill("8");
+    await page.locator('.exscreen [data-f="done"]').first().check();
+    assert.ok(await page.getAttribute('.dots [data-go="0"]', "class").then((c) => c.includes("partial")), "dot shows partial");
+    assert.equal(await page.textContent("#rest-time"), "3:00");
+    await page.click("#ex-next"); await page.waitForSelector('.exscreen[data-k="1"]');
+    assert.equal(await page.textContent("#ex-pos"), `Exercise 2 of ${n}`);
+    await page.clock.runFor(30_000);
+    assert.equal(await page.textContent("#rest-time"), "2:30", "rest timer kept running across the exercise change");
+    await page.click("#ex-back"); await page.waitForSelector('.exscreen[data-k="0"]');
+    assert.equal(await page.locator('.exscreen [data-f="weight"]').first().inputValue(), "60", "logged set still there");
+    await page.click('.dots [data-go="4"]'); await page.waitForSelector('.exscreen[data-k="4"]');
+    await page.click("#ex-list"); await page.waitForSelector("#lightbox:not([hidden]) .ov-pick");
+    assert.equal(await page.locator("#lightbox .ov-pick").count(), n); assert.match(await page.locator("#lightbox .ov-pick").first().textContent(), /1\/\d+ sets done/);
+    await page.click('#lightbox .ov-pick[data-go="2"]'); await page.waitForSelector('.exscreen[data-k="2"]'); assert.equal(await page.isVisible("#lightbox"), false);
+    // swipe left = next, right = back (synthetic touch events on the card)
+    const swipe = (dx) => page.evaluate((dx) => { const el = document.querySelector(".exscreen .exname"), t = (x) => new Touch({ identifier: 1, target: el, clientX: x, clientY: 300 });
+      el.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, touches: [t(200)], changedTouches: [t(200)] }));
+      el.dispatchEvent(new TouchEvent("touchend", { bubbles: true, touches: [], changedTouches: [t(200 + dx)] })); }, dx);
+    await swipe(-120); await page.waitForSelector('.exscreen[data-k="3"]');
+    await swipe(120); await page.waitForSelector('.exscreen[data-k="2"]');
+    await swipe(-20); assert.equal(await page.getAttribute(".exscreen", "data-k"), "2", "small drag is not a swipe");
+    await page.reload(); await page.waitForSelector('.exscreen[data-k="2"]');
+    assert.equal((await state(page)).active.cur, 2, "position persisted"); assert.ok(await page.isVisible("#rest"), "rest timer still running after reload");
+    await page.locator(".dots [data-go]").last().click(); await page.waitForSelector("#finish");
+    assert.equal(await page.textContent("#ex-pos"), `Exercise ${n} of ${n}`);
+    assert.equal(await page.locator("#ex-next").count(), 0, "Next replaced by Finish on the last exercise");
+    assert.ok(await page.isVisible("#recovery")); assert.match(await page.textContent("#finish-count"), /1 of \d+ sets ticked/);
+    await page.click('#recovery [data-r="ok"]');
+    await page.click("#rest-skip"); await page.click("#finish"); await page.waitForSelector("#fallback-card");
+    const s = await state(page); assert.equal(s.history.length, 1); assert.equal(s.history[0].recovery, "ok"); assert.equal(s.history[0].exercises[first].sets[0].weight, 60);
+    // a new workout starts on exercise 1
+    await page.goto(BASE + "#/today"); await page.click("#start"); await page.waitForSelector('.exscreen[data-k="0"]');
+    assert.equal(errors.length, 0, errors.join("\n"));
+    ok("one exercise per screen: 'Exercise k of n' + dots, Next/Back, dot + overview jumps, swipe, position persists, rest timer survives changes, last = recovery + Finish");
     await ctx.close();
   }
 

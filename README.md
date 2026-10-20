@@ -26,6 +26,9 @@ and only work for the home-screen app.
 - `state.js`: saved-state migration. The storage key is still `massplan.v1`, so old data carries over.
 - `notify.js`: permission + `registration.showNotification`, with a fallback card.
 - `sw.js`: offline app shell (cache-first, refreshed in the background), notification taps.
+- `media.js`: the only code that renders exercise images (thumbnail, big image on the workout screen, enlarged view, credit). A new image style = new files in `images.js`/`img/ex/` + `IMAGE_STYLE`; no screen changes.
+- `stepper.js`: pure helpers for the one-exercise-per-screen workout (position, dot status, swipe).
+- Workout: one exercise per screen ("Exercise 3 of 8" + dots, Back / Next exercise, swipe, "All exercises" list); position is saved, the rest timer keeps running across screens, and the last exercise shows the recovery question + Finish workout.
 - `images.js` + `img/ex/`: exercise photos (start | finish) from free-exercise-db (public domain, Unlicense), resized to small WebP, cached offline; a muscle icon where there is no good match.
 - Lock screen: password checked against a SHA-256 hash in `app.js` (client-side deterrent only); the device stays unlocked until **Lock app** in Settings.
 - Screens: onboarding (or restore a backup), Today (deload card, week summary, macros), Workout

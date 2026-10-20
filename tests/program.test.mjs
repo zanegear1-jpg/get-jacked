@@ -174,3 +174,34 @@ test("exercise photos: bundled, small, cached by the service worker; only known 
   }
   assert.match(sw, /"\.\/images\.js"/);
 });
+
+test("one-exercise workout helpers: clamp, status, swipe, label; migration keeps/clamps the position", async () => {
+  const { clampIndex, exerciseStatus, swipeDir, positionLabel } = await import("../stepper.js");
+  assert.equal(clampIndex(3, 8), 3); assert.equal(clampIndex(99, 8), 7); assert.equal(clampIndex(-2, 8), 0); assert.equal(clampIndex(undefined, 8), 0); assert.equal(clampIndex("x", 8), 0); assert.equal(clampIndex(2, 0), 0);
+  assert.equal(exerciseStatus([]), "todo");
+  assert.equal(exerciseStatus([{ done: false }, { done: false }]), "todo");
+  assert.equal(exerciseStatus([{ done: true }, { done: false }]), "partial");
+  assert.equal(exerciseStatus([{ done: true }, { done: true }]), "done");
+  assert.equal(swipeDir(-100, 10), -1); assert.equal(swipeDir(100, -10), 1); assert.equal(swipeDir(-30, 0), 0); assert.equal(swipeDir(-100, 90), 0, "mostly vertical = scroll");
+  assert.equal(positionLabel(2, 8), "Exercise 3 of 8");
+  const { migrate } = await import("../state.js");
+  const active = (cur) => ({ schema: 2, profile: { bodyweightKg: 80 }, history: [], active: { sessionIdx: 0, startedAt: 1, recovery: "good", cur,
+    session: { id: "upperA", name: "Upper A", exercises: [{ ...LIBRARY.bench }, { ...LIBRARY.csrow }] }, exercises: { bench: { sets: [] }, csrow: { sets: [] } } } });
+  assert.equal(migrate(active(undefined)).active.cur, 0, "older saves without a position start on exercise 1");
+  assert.equal(migrate(active(1)).active.cur, 1);
+  assert.equal(migrate(active(9)).active.cur, 1, "out-of-range position clamped");
+});
+
+test("image rendering is centralised in media.js (style swap = data + IMAGE_STYLE)", async () => {
+  const { exMedia, thumbHTML, heroHTML, photoHTML, IMAGE_STYLE } = await import("../media.js");
+  const m = exMedia("bench"); assert.ok(m.src.startsWith("img/ex/") && m.alt.includes("Barbell bench press"));
+  assert.equal(exMedia("bandabd"), null, "no image -> fallback");
+  assert.match(thumbHTML(LIBRARY.bench), /class="exthumb" data-img="bench"/);
+  assert.match(thumbHTML(LIBRARY.bandabd), /exthumb fallback/);
+  assert.match(heroHTML(LIBRARY.bench), /class="exhero" data-img="bench".*Start.*Finish/s);
+  assert.match(heroHTML(LIBRARY.bandabd), /exhero fallback/);
+  assert.match(photoHTML(LIBRARY.bench), /free-exercise-db/);
+  const prev = IMAGE_STYLE.layout; IMAGE_STYLE.layout = "single";
+  assert.ok(!/Finish/.test(heroHTML(LIBRARY.bench)), "single-frame style drops the start/finish captions");
+  IMAGE_STYLE.layout = prev;
+});

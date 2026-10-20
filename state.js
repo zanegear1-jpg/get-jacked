@@ -1,4 +1,5 @@
 // Saved-state shape + migration. Storage key stays "massplan.v1" so nobody loses data; `schema` tracks the shape.
+import { clampIndex } from "./stepper.js";
 import { LIBRARY, START_WEEKLY_SETS, MUSCLES } from "./program.js";
 
 export const SCHEMA = 2;
@@ -30,6 +31,7 @@ export function migrate(raw) {
     S.active.session = { id: sid, name: OLD_NAMES[sid], exercises: ids.map((id) => ({ ...LIBRARY[id] })) };
   }
   if (S.active) for (const x of Object.values(S.active.exercises || {})) for (const st of x.sets || []) { if (!("rir" in st)) st.rir = ""; }
+  if (S.active) S.active.cur = clampIndex(S.active.cur, S.active.session?.exercises?.length || 0); // one-exercise screen position
   S.schema = SCHEMA;
   return S;
 }

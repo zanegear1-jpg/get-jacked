@@ -21,25 +21,35 @@ await p.evaluate(() => {
   localStorage.setItem("massplan.v1", JSON.stringify(S));
 });
 await p.reload(); await p.waitForSelector("#start"); await shot("2-today");
-await p.click("#start"); await p.waitForSelector("#finish");
-const cards = p.locator("[data-ex]");
-for (let c = 0; c < await cards.count(); c++) {
-  const card = cards.nth(c), id = await card.getAttribute("data-ex"), wi = card.locator('[data-f="weight"]').first();
+await p.click("#start"); await p.waitForSelector("#ex-pos");
+// one exercise per screen: work through them with the Next button, like a lifter would
+const n = await p.locator(".dots [data-go]").count();
+for (let c = 0; c < n; c++) {
+  const card = p.locator(".exscreen"), id = await card.getAttribute("data-ex"), wi = card.locator('[data-f="weight"]').first();
   if (id === "inclinedb") {
     await card.locator("details.sw summary").click(); await card.locator(".sw-w").fill("26"); await card.locator(".sw-r").fill("10"); await card.locator(".sw-go").click();
-    await card.scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -70)); await shot("5-starting-weight");
+    await card.locator("details.sw").scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -140)); await shot("5-starting-weight");
   }
   if (!(await wi.inputValue())) await wi.fill("20");
-  const n = await card.locator('[data-f="done"]').count();
-  for (let i = 0; i < n; i++) { await card.locator('[data-f="reps"]').nth(i).fill(c === 0 ? String(8 - i) : "12"); await card.locator('[data-f="rir"]').nth(i).fill("2"); await card.locator('[data-f="done"]').nth(i).check(); }
+  const k = await card.locator('[data-f="done"]').count();
+  for (let i = 0; i < k; i++) { await card.locator('[data-f="reps"]').nth(i).fill(c === 0 ? String(8 - i) : "12"); await card.locator('[data-f="rir"]').nth(i).fill("2"); if (!(c === 3 && i === k - 1)) await card.locator('[data-f="done"]').nth(i).check(); }
   if (c === 0) { await p.evaluate(() => window.scrollTo(0, 0)); await p.waitForTimeout(1100); await shot("3-workout-rest-timer"); }
+  if (c === 3) { // mid-workout: exercise 4 of n, one set left to tick, rest timer running from the previous set
+    await p.evaluate(() => window.scrollTo(0, 0)); await p.waitForTimeout(400); await shot("10-exercise-screen-mid-workout");
+    await shot("10b-exercise-screen-mid-workout-full", true);
+    await card.locator('[data-f="done"]').nth(k - 1).check();
+  }
   if (id === "latraise") {
-    await card.scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -80)); await shot("5b-exercise-card-photo");
-    await card.locator(".exthumb").click(); await p.waitForSelector("#photo:not([hidden]) img"); await p.waitForTimeout(300); await shot("5c-photo-enlarged"); await p.click("#photo .lb-x");
+    await p.evaluate(() => window.scrollTo(0, 0)); await shot("5b-exercise-card-photo");
+    await card.locator(".exhero").click(); await p.waitForSelector("#photo:not([hidden]) img"); await p.waitForTimeout(300); await shot("5c-photo-enlarged"); await p.click("#photo .lb-x");
     await card.locator(".swap-btn").click(); await p.waitForSelector("#lightbox .altrow"); await p.waitForTimeout(300); await shot("5d-swap-alternatives"); await p.click("#lightbox .lb-x");
   }
-  if (id === "csrow") { await card.scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -150)); await shot("4-progression-earned"); }
+  if (id === "csrow") { await card.locator(".live").scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, 200)); await shot("4-progression-earned"); }
+  if (c === 4) { await p.click("#ex-list"); await p.waitForSelector("#lightbox .ov-pick"); await p.waitForTimeout(300); await shot("10c-all-exercises-overview"); await p.click("#lightbox .lb-x"); }
+  if (c < n - 1) { await p.click("#ex-next"); await p.waitForSelector(`.exscreen[data-k="${c + 1}"]`); }
 }
+await p.click('#recovery [data-r="good"]');
+await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); await p.waitForTimeout(300); await shot("11-last-exercise-finish");
 await p.evaluate(() => { window.__massplan.state.active.startedAt = Date.now() - 74 * 60000; });
 await p.evaluate(() => navigator.serviceWorker.ready);
 await p.click("#finish"); await p.waitForSelector("#notify-status,#fallback-card");

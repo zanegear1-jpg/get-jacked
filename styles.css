@@ -78,3 +78,29 @@ details.sw .row input{min-height:44px;min-width:0}details.sw .row button{flex:0 
 .lock img{align-self:center;border-radius:20px}.lock h1{margin:4px 0 0}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 body.locked .top .pill,body.locked #install-btn{display:none}
+/* one exercise per screen */
+.wtop{position:sticky;top:0;z-index:4;background:var(--bg);padding:6px 0 4px;margin:0 -2px}
+.wpos{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.wpos strong{font-size:17px}.wpos>.small.muted{flex:1;min-width:0}
+.wpos button{flex:0 0 auto}
+.dots{display:flex;gap:2px;flex-wrap:wrap;margin-top:4px}
+.dot{flex:1 1 0;min-width:28px;max-width:52px;min-height:40px;padding:0;background:none;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.dot i{display:block;width:14px;height:14px;border-radius:50%;border:2px solid var(--muted);background:transparent}
+.dot.partial i{border-color:var(--accent);background:linear-gradient(90deg,var(--accent) 50%,transparent 50%)}
+.dot.done i{border-color:var(--ok);background:var(--ok)}
+.dot.cur i{width:20px;height:20px;box-shadow:0 0 0 3px #f9731655}
+.exscreen{padding-top:10px}
+.exhero{display:block;width:100%;padding:0;border-radius:12px;overflow:hidden;background:#fff;border:1px solid var(--b);position:relative}
+.exhero img{display:block;width:100%;height:auto;aspect-ratio:606/200;object-fit:contain}
+.exhero .hero-cap{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;background:#0009;color:#fff;padding:2px 0;font-weight:600}
+.exhero.fallback{display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:606/200;background:var(--card2);color:var(--muted)}
+.exname{margin:10px 0 4px;font-size:24px;line-height:1.2}
+.targets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.targets span{background:var(--card2);border-radius:99px;padding:3px 10px;font-size:13px;font-weight:600}
+.wnav{display:flex;gap:8px;margin:12px 0 6px;align-items:stretch}
+.wnav #ex-back{flex:0 0 auto;min-width:96px;min-height:52px}.wnav #ex-back:disabled{opacity:.4}
+.wnav .primary{flex:1;display:flex;flex-direction:column;align-items:center;line-height:1.2;min-height:52px}
+.wnav .primary .small{font-weight:500;opacity:.85;font-size:12px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wnav .pulse{box-shadow:0 0 0 3px #22c55e88}
+.ov-pick{flex:1;text-align:left;display:flex;flex-direction:column;background:var(--card2);border-radius:12px;min-height:60px}
+.ov-pick.on{outline:2px solid var(--accent)}
+.center{text-align:center}
