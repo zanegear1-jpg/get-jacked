@@ -64,6 +64,7 @@ async function sha256Hex(text) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 function lockScreen() {
+  if ($("#lock")) return; // already showing: a second render (e.g. hashchange) must not wipe what's being typed
   $("#nav").hidden = true; $("#rest").hidden = true; document.body.classList.add("locked");
   view.innerHTML = `
   <form class="lock" id="lock" autocomplete="off">
@@ -673,7 +674,7 @@ function settings() {
     iPhone: Safari → Share → Add to Home Screen.</div>
   <div class="row"><button id="lock-app">Lock app</button></div>
   <p><button class="small" id="reset">Reset all data</button></p>`;
-  $("#lock-app").onclick = () => { localStorage.removeItem(LOCK_KEY); go("today"); render(); };
+  $("#lock-app").onclick = () => { localStorage.removeItem(LOCK_KEY); go("today"); };
   $("#st-save").onclick = () => {
     const r = readProfile(); if (r.error) { $("#st-err").textContent = r.error; $("#st-err").hidden = false; return; }
     const np = r.profile, changed = np.days !== p.days || np.equipment !== p.equipment || np.experience !== p.experience;

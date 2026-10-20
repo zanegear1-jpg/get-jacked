@@ -155,6 +155,10 @@ try {
     const src = await (await page.request.get(BASE + "app.js")).text();
     assert.ok(!/["'`]zane["'`]/i.test(src), "plain-text password not in the code");
     await page.goto(BASE + "#/settings"); await page.click("#lock-app"); await page.waitForSelector("#lock-pw");
+    // regression: typing straight after "Lock app" must survive the hashchange re-render
+    await page.fill("#lock-pw", "zane"); await page.waitForTimeout(300); assert.equal(await page.inputValue("#lock-pw"), "zane", "typed password kept");
+    await page.press("#lock-pw", "Enter"); await page.waitForSelector("#start");
+    await page.goto(BASE + "#/settings"); await page.click("#lock-app"); await page.waitForSelector("#lock-pw");
     await page.goto(BASE + "#/summary"); await page.reload(); await page.waitForSelector("#lock-pw"); // e.g. a notification tap while locked
     await page.fill("#lock-pw", "zane"); await page.press("#lock-pw", "Enter");
     await page.waitForSelector("text=No workout yet"); // routed to the requested screen after unlocking
