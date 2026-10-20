@@ -5,8 +5,9 @@ import { sendPostWorkout, ensurePermission, permissionState } from "./notify.js"
 import { fresh, migrate } from "./state.js";
 import { thumbHTML, heroHTML, photoHTML } from "./media.js";
 import { clampIndex, exerciseStatus, swipeDir, positionLabel } from "./stepper.js";
+import { CONFIG } from "./config.js";
 
-const KEY = "massplan.v1"; // unchanged since v1 so saved data carries over; state.js migrates the shape
+const KEY = CONFIG.storagePrefix + "massplan.v1"; // unchanged since v1 so saved data carries over; state.js migrates the shape. Friends get a prefix.
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const view = $("#view");
@@ -57,8 +58,8 @@ function targets() { return dailyTargets({ ...S.profile, kcalAdjust: S.kcalAdjus
 // ---------- views ----------
 const routes = { onboarding, today, workout, summary, progress, why, settings };
 // ---------- lock screen (client-side deterrent only: this is a public static site) ----------
-const LOCK_KEY = "getjacked.unlocked";
-const PASS_SHA256 = "501e1aff9d6d646c2e6238a6deb4f2d624938ecc7f542903b74dd2fa210b3463"; // SHA-256 of the lower-cased password
+const LOCK_KEY = CONFIG.storagePrefix + "getjacked.unlocked";
+const PASS_SHA256 = CONFIG.passSha256; // SHA-256 of the lower-cased password (config.js / a friend's user.js)
 const isUnlocked = () => { try { return localStorage.getItem(LOCK_KEY) === "1"; } catch { return false; } };
 async function sha256Hex(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));

@@ -43,3 +43,13 @@ headless Chromium e2e run (`tests/e2e.mjs`, Pixel 7, notifications mocked) cover
 notifications and the denied fallback, offline use, installability, the rest timer (fake clock), swaps,
 progression, settings, tracker/chart/history, export/import, v1 migration, deload and calorie goals.
 `node tests/shots.mjs` retakes `screenshots/` and checks a real, unmocked notification.
+
+## Friends' copies (/ben/, /laychan/)
+
+- Live: `https://zanegear1-jpg.github.io/get-jacked/ben/` and `.../laychan/`. Each installs as its own app ("Get Jacked", own car icon),
+  with its own password (stored only as a SHA-256 hash), its own service worker scope and its own localStorage namespace (`ben:...`),
+  so nothing mixes with Zane's app on a shared phone. Zane's app at the root is unchanged (password `zane`, original storage keys).
+- Only the per-person files live in the folder: `index.html`, `user.js` (sets `window.GJ_CONFIG`, read by `config.js`),
+  `manifest.webmanifest`, `sw.js`, `icons/`. App code, CSS and exercise images are shared from the root via `../` and precached by each folder's worker.
+- After changing the app: `npm run build:friends` (tests fail if a folder is stale). New friend: add to `friends.json`, put artwork in
+  `friends-src/<slug>-car.jpg`, run `python3 scripts/friend-icons.py <slug>` and `npm run build:friends`.

@@ -2,6 +2,7 @@
 // so a new image style (e.g. illustrated graphics) is a change to EX_IMG data + IMAGE_STYLE, not to the screens.
 import { EX_IMG } from "./images.js";
 import { LIBRARY, MUSCLES } from "./program.js";
+import { CONFIG } from "./config.js";
 
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -20,7 +21,7 @@ const MUSCLE_ICON = `<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden
 export function exMedia(id) {
   const im = EX_IMG[id], ex = LIBRARY[id];
   if (!im || !ex) return null;
-  return { src: im[0], source: im[1], alt: `${ex.name}: ${IMAGE_STYLE.layout === "pair" ? "start and finish positions" : "how to do it"}`, credit: IMAGE_STYLE.credit(im[1]) };
+  return { src: CONFIG.assetBase + im[0], source: im[1], alt: `${ex.name}: ${IMAGE_STYLE.layout === "pair" ? "start and finish positions" : "how to do it"}`, credit: IMAGE_STYLE.credit(im[1]) };
 }
 const styleAttr = () => `style="object-position:${IMAGE_STYLE.thumbPosition};background:${IMAGE_STYLE.background}"`;
 

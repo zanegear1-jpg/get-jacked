@@ -4,8 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/calc.test.mjs tests/program.test.mjs && node tests/e2e.mjs",
+    "test": "node --test tests/calc.test.mjs tests/program.test.mjs && node tests/e2e.mjs && node tests/friends.mjs",
+    "build:friends": "node scripts/build-friends.mjs",
     "serve": "python3 -m http.server 8088"
   },
-  "devDependencies": { "playwright": "1.63.0" }
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
 }

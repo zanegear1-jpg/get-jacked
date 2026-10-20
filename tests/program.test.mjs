@@ -212,3 +212,31 @@ test("image rendering is centralised in media.js (style swap = data + IMAGE_STYL
   assert.match(heroHTML(LIBRARY.bench), /hero-cap.*Start.*Finish/s, "a two-frame style is still just a data change");
   Object.assign(IMAGE_STYLE, prev);
 });
+
+test("friend folders (/ben/, /laychan/) are generated from the root app and up to date", async () => {
+  const fs = await import("node:fs");
+  const root = new URL("..", import.meta.url).pathname;
+  const { build, friendFiles } = await import("../scripts/build-friends.mjs");
+  assert.deepEqual(build({ check: true }), [], "run `npm run build:friends`");
+  const { friends } = JSON.parse(fs.readFileSync(root + "friends.json", "utf8"));
+  assert.deepEqual(friends.map((f) => f.slug), ["ben", "laychan"]);
+  const { createHash } = await import("node:crypto");
+  const sha = (s) => createHash("sha256").update(s).digest("hex");
+  for (const f of friends) {
+    assert.equal(f.passSha256, sha(f.slug), "password = slug, stored only as a hash");
+    const files = friendFiles(f), user = files["user.js"];
+    assert.match(user, new RegExp(`"storagePrefix": "${f.slug}:"`)); assert.match(user, new RegExp(f.passSha256)); assert.match(user, /"assetBase": "\.\.\/"/);
+    const m = JSON.parse(files["manifest.webmanifest"]);
+    assert.equal(m.name, "Get Jacked"); assert.equal(m.id, "./"); assert.equal(m.scope, "./"); assert.equal(m.start_url, "./#/today");
+    assert.ok(m.icons.some((i) => i.purpose === "maskable" && i.sizes === "512x512"));
+    assert.match(files["sw.js"], new RegExp(`const VERSION = "get-jacked-v\\d+-${f.slug}"`));
+    assert.match(files["sw.js"], /"\.\.\/app\.js"/); assert.match(files["sw.js"], /"\.\/user\.js"/); assert.match(files["sw.js"], /"\.\.\/img\/ex\/bench\.webp"/);
+    assert.match(files["index.html"], /<script src="user\.js"><\/script>\s*<script type="module" src="\.\.\/app\.js">/);
+    for (const i of ["icon-192.png", "icon-512.png", "icon-maskable-192.png", "icon-maskable-512.png", "apple-touch-icon-180.png", "favicon-32.png"]) assert.ok(fs.statSync(`${root}${f.slug}/icons/${i}`).size > 200, i);
+  }
+  // Zane's root app keeps its own password and original storage keys
+  globalThis.GJ_CONFIG = undefined;
+  const { CONFIG } = await import("../config.js");
+  assert.equal(CONFIG.passSha256, sha("zane")); assert.equal(CONFIG.storagePrefix, ""); assert.equal(CONFIG.assetBase, "");
+  assert.match(fs.readFileSync(root + "sw.js", "utf8"), /"\.\/config\.js"/);
+});
