@@ -7,11 +7,11 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 
 /** Current style. layout "pair" = one file showing start|finish side by side; "single" = one frame. */
 export const IMAGE_STYLE = {
-  layout: "pair",
-  thumbPosition: "22% 50%",          // which part of the file a square thumbnail shows (the start frame)
-  frames: ["Start", "Finish"],       // captions under the enlarged image (pair layout)
-  credit: (src) => `Photo: “${esc(src)}”, free-exercise-db (public domain).`,
-  background: "#fff",
+  layout: "single",
+  thumbPosition: "50% 50%",          // which part of the file a square thumbnail shows
+  frames: [],                        // captions under the enlarged image (pair layout only)
+  credit: () => "Illustration generated for Get Jacked.",
+  background: "#111",
 };
 
 const MUSCLE_ICON = `<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path fill="currentColor" d="M2 10h2V8h2v8H4v-2H2zm4-3h2v10H6zm10 0h2v10h-2zm2 1h2v2h2v4h-2v2h-2zM8 11h8v2H8z"/></svg>`;

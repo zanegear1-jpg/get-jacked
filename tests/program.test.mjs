@@ -159,20 +159,25 @@ test("starting-weight helper: Epley e1RM -> (bottom of range + 2) RM, rounded do
   assert.equal(startingWeight(LIBRARY.bench, "", 5), null); assert.equal(startingWeight(LIBRARY.bench, 100, 0), null);
 });
 
-test("exercise photos: bundled, small, cached by the service worker; only known fallbacks", async () => {
+test("exercise illustrations: one per exercise, bundled, small, cached by the service worker", async () => {
   const { EX_IMG } = await import("../images.js");
   const fs = await import("node:fs");
   const root = new URL("..", import.meta.url).pathname;
   const fallbacks = Object.keys(LIBRARY).filter((id) => !EX_IMG[id]);
-  assert.deepEqual(fallbacks.sort(), ["bandabd", "bandbicurl", "machlat", "ytraise"]);
+  assert.deepEqual(fallbacks, [], "every exercise (incl. all swap alternatives) has an illustration");
   const sw = fs.readFileSync(root + "sw.js", "utf8");
   const swImgs = JSON.parse(sw.match(/const IMAGES = (\[.*?\]);/)[1]);
   assert.deepEqual(swImgs.sort(), [...new Set(Object.values(EX_IMG).map(([p]) => "./" + p))].sort());
   for (const [p] of Object.values(EX_IMG)) {
     assert.ok(!p.startsWith("http"), "no hotlinking");
-    const size = fs.statSync(root + p).size; assert.ok(size > 2000 && size <= 40000, `${p} ${size} B`);
+    const size = fs.statSync(root + p).size; assert.ok(size > 2000 && size <= 60000, `${p} ${size} B`);
   }
   assert.match(sw, /"\.\/images\.js"/);
+  for (const id of Object.keys(LIBRARY)) assert.equal(EX_IMG[id][0], `img/ex/${id}.webp`);
+  const exFiles = fs.readdirSync(root + "img/ex").sort();
+  assert.deepEqual(exFiles, Object.keys(LIBRARY).map((id) => id + ".webp").sort(), "no leftover old photos");
+  const head = fs.readFileSync(root + "img/ex/bench.webp").subarray(0, 30);
+  assert.equal(head.subarray(0, 4).toString(), "RIFF"); assert.equal(head.subarray(8, 12).toString(), "WEBP");
 });
 
 test("one-exercise workout helpers: clamp, status, swipe, label; migration keeps/clamps the position", async () => {
@@ -195,13 +200,15 @@ test("one-exercise workout helpers: clamp, status, swipe, label; migration keeps
 test("image rendering is centralised in media.js (style swap = data + IMAGE_STYLE)", async () => {
   const { exMedia, thumbHTML, heroHTML, photoHTML, IMAGE_STYLE } = await import("../media.js");
   const m = exMedia("bench"); assert.ok(m.src.startsWith("img/ex/") && m.alt.includes("Barbell bench press"));
-  assert.equal(exMedia("bandabd"), null, "no image -> fallback");
+  assert.equal(exMedia("nope"), null, "unknown id -> fallback");
   assert.match(thumbHTML(LIBRARY.bench), /class="exthumb" data-img="bench"/);
-  assert.match(thumbHTML(LIBRARY.bandabd), /exthumb fallback/);
-  assert.match(heroHTML(LIBRARY.bench), /class="exhero" data-img="bench".*Start.*Finish/s);
-  assert.match(heroHTML(LIBRARY.bandabd), /exhero fallback/);
-  assert.match(photoHTML(LIBRARY.bench), /free-exercise-db/);
-  const prev = IMAGE_STYLE.layout; IMAGE_STYLE.layout = "single";
-  assert.ok(!/Finish/.test(heroHTML(LIBRARY.bench)), "single-frame style drops the start/finish captions");
-  IMAGE_STYLE.layout = prev;
+  const fake = { id: "nope", name: "Mystery", muscle: "chest", reps: [8, 12] };
+  assert.match(thumbHTML(fake), /exthumb fallback/);
+  assert.match(heroHTML(LIBRARY.bench), /class="exhero" data-img="bench"/);
+  assert.equal(IMAGE_STYLE.layout, "single"); assert.ok(!/Start|Finish|hero-cap/.test(heroHTML(LIBRARY.bench)), "one frame, no start/finish captions");
+  assert.match(heroHTML(fake), /exhero fallback/);
+  assert.match(photoHTML(LIBRARY.bench), /Illustration generated for Get Jacked/); assert.ok(!/free-exercise-db|Photo:/.test(photoHTML(LIBRARY.bench)));
+  const prev = { ...IMAGE_STYLE }; Object.assign(IMAGE_STYLE, { layout: "pair", frames: ["Start", "Finish"] });
+  assert.match(heroHTML(LIBRARY.bench), /hero-cap.*Start.*Finish/s, "a two-frame style is still just a data change");
+  Object.assign(IMAGE_STYLE, prev);
 });

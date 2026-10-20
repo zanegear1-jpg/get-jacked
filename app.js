@@ -344,7 +344,7 @@ function workout() {
     const sh = $("#lightbox");
     sh.innerHTML = `<div class="lb-card sheet" role="dialog" aria-modal="true" aria-label="Swap ${esc(old.name)}">
       <div class="lb-head"><strong>Swap ${esc(old.name)}</strong><button type="button" class="lb-x" aria-label="Close">✕</button></div>
-      <p class="small muted">Same muscle (${MUSCLES[old.muscle]}), works with your equipment. Tap a photo to see it bigger.</p>
+      <p class="small muted">Same muscle (${MUSCLES[old.muscle]}), works with your equipment. Tap a picture to see it bigger.</p>
       ${alts.map((o) => `<div class="altrow">${thumbHTML(o)}<button type="button" class="alt-pick" data-swap="${o.id}"><b>${esc(o.name)}</b><span class="small muted">${o.reps[0]}–${o.reps[1]} reps · ${o.kind === "C" ? "compound" : "isolation"}</span></button></div>`).join("")}</div>`;
     sh.hidden = false;
     const close = () => { sh.hidden = true; sh.innerHTML = ""; };
@@ -378,7 +378,7 @@ function workout() {
 const calibrating = () => !S.history.length || Date.now() - Date.parse(S.history[0].date) < 7 * DAY;
 const calibrationTip = () => `<div class="card warnb" id="calib"><strong>Calibration week</strong>
   <p class="small">Warm up with 2–3 lighter sets. Pick a weight you can lift for the rep range with 1–2 reps left, and adjust it set to set. New exercise? Tap <b>Find my starting weight</b>. Next week the app takes over the numbers.</p></div>`;
-// ---------- exercise photos (rendering lives in media.js) ----------
+// ---------- exercise images (rendering lives in media.js) ----------
 function openPhoto(id) {
   const ex = LIBRARY[id], html = ex && photoHTML(ex); if (!html) return;
   const lb = $("#photo"); lb.innerHTML = html; lb.hidden = false;
@@ -675,7 +675,7 @@ Target gain: ${t.weeklyGainKg[0]}–${t.weeklyGainKg[1]} kg/week (0.25–0.5%)</
     <li>Refalo MC et al. Influence of resistance training proximity-to-failure on skeletal muscle hypertrophy: a systematic review with meta-analysis. <i>Sports Med</i> 2023;53(3):649–665. <a href="https://doi.org/10.1007/s40279-022-01784-y">doi:10.1007/s40279-022-01784-y</a></li>
     <li>Schoenfeld BJ et al. Longer interset rest periods enhance muscle strength and hypertrophy in resistance-trained men. <i>J Strength Cond Res</i> 2016;30(7):1805–1812. <a href="https://doi.org/10.1519/JSC.0000000000001272">doi:10.1519/JSC.0000000000001272</a></li>
   </ol>
-  <p class="small muted" id="photo-credit">Exercise photos: <a class="tap" href="https://github.com/yuhonas/free-exercise-db">free-exercise-db</a> by yuhonas, released into the public domain (The Unlicense); resized and bundled with the app. A few band/bodyweight moves show the closest cable or machine version.</p>
+  <p class="small muted" id="photo-credit">Exercise illustrations generated for Get Jacked.</p>
   <p class="small muted">General guidance for healthy adults, not medical advice.</p>`;
 }
 

@@ -29,7 +29,7 @@ and only work for the home-screen app.
 - `media.js`: the only code that renders exercise images (thumbnail, big image on the workout screen, enlarged view, credit). A new image style = new files in `images.js`/`img/ex/` + `IMAGE_STYLE`; no screen changes.
 - `stepper.js`: pure helpers for the one-exercise-per-screen workout (position, dot status, swipe).
 - Workout: one exercise per screen ("Exercise 3 of 8" + dots, Back / Next exercise, swipe, "All exercises" list); position is saved, the rest timer keeps running across screens, and the last exercise shows the recovery question + Finish workout.
-- `images.js` + `img/ex/`: exercise photos (start | finish) from free-exercise-db (public domain, Unlicense), resized to small WebP, cached offline; a muscle icon where there is no good match.
+- `images.js` + `img/ex/`: one illustration per exercise (all 80, including every swap alternative), generated for Get Jacked in a single style (grey 3D figure, target muscles in blue, dark background); 512 px WebP, cached offline. A muscle icon is the fallback if an image is ever missing.
 - Lock screen: password checked against a SHA-256 hash in `app.js` (client-side deterrent only); the device stays unlocked until **Lock app** in Settings.
 - Screens: onboarding (or restore a backup), Today (deload card, week summary, macros), Workout
   (Start button, per-set kg/reps/RIR, rest timer that starts on tick with ±15 s and beep/vibrate, swap,

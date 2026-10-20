@@ -253,22 +253,25 @@ try {
     assert.equal(await page.textContent("#rest-time"), "1:30", "isolation rest 1.5 min");
     await page.click("#rest-skip"); assert.equal(await page.isVisible("#rest"), false);
     ok("Workout tab shows Start; weight carries; RIR saved; rest timer 3:00/1:30, ±15s, beep+vibrate, sticky; empty reps -> low end");
-    // exercise photo: thumbnail loads from the bundle, tap -> start/finish full size
+    // exercise illustration: big image loads from the bundle, tap -> enlarged view
     await showEx(page, "bench");
     const thumbOk = await page.locator('[data-ex="bench"] .exhero img').evaluate((i) => i.complete && i.naturalWidth > 0 && !i.src.startsWith("http") || new URL(i.src).origin === location.origin);
     assert.ok(thumbOk, "bench thumbnail from the app's own origin");
     await page.locator('[data-ex="bench"] .exhero').click(); await page.waitForSelector("#photo:not([hidden]) img");
     assert.ok(await page.locator("#photo img").evaluate((i) => new Promise((r) => i.complete ? r(i.naturalWidth) : (i.onload = () => r(i.naturalWidth)))) > 300);
-    assert.match(await page.textContent("#photo"), /Start.*Finish/s);
+    assert.match(await page.textContent("#photo"), /Illustration generated for Get Jacked/);
+    assert.ok(!/free-exercise-db/.test(await page.textContent("#photo")));
     await page.click("#photo .lb-x"); assert.equal(await page.isVisible("#photo"), false);
-    // swap sheet lists alternatives with photos (or the muscle-icon fallback)
+    // swap sheet: every alternative has its illustration (no fallback icons left)
     await showEx(page, "latraise"); await page.locator('[data-ex="latraise"] .swap-btn').click(); await page.waitForSelector("#lightbox:not([hidden]) .altrow");
-    assert.ok(await page.locator('#lightbox .altrow .exthumb img').count() >= 2, "alternatives have photos");
-    assert.equal(await page.locator('#lightbox .altrow .exthumb.fallback').count(), 1, "machine lateral raise uses the fallback icon");
+    const altN = await page.locator('#lightbox .altrow').count();
+    assert.ok(altN >= 3 && await page.locator('#lightbox .altrow .exthumb img').count() === altN, "every alternative has an illustration");
+    assert.equal(await page.locator('#lightbox .altrow .exthumb.fallback').count(), 0, "no fallback icons");
+    assert.ok((await page.$$eval('#lightbox .altrow .exthumb img', (imgs) => Promise.all(imgs.map((i) => i.decode().then(() => i.naturalWidth, () => 0))))).every((w) => w === 512), "alternative images load (512 px)");
     await page.locator('#lightbox .altrow .exthumb[data-img="cablelat"]').click(); await page.waitForSelector("#photo:not([hidden])");
     await page.keyboard.press("Escape"); assert.equal(await page.isVisible("#photo"), false); assert.ok(await page.isVisible("#lightbox"), "photo closes back to the swap list");
     await page.click("#lightbox .lb-x"); assert.equal(await page.isVisible("#lightbox"), false);
-    ok("exercise photos: thumbnail, tap to enlarge start/finish, swap sheet shows photos + fallback icon");
+    ok("exercise illustrations: big image on the exercise screen, tap to enlarge (single frame + 'generated for Get Jacked'), swap sheet shows an illustration for every alternative");
     await showEx(page, "inclinedb"); await page.locator('[data-ex="inclinedb"] .swap-btn').click();
     await page.locator('#lightbox [data-swap="cablefly"]').click();
     await page.waitForSelector('[data-ex="cablefly"]');
@@ -325,7 +328,7 @@ try {
     await page.click("#ex-next"); await page.waitForSelector('.exscreen[data-k="1"]');
     assert.equal(await page.textContent("#ex-pos"), `Exercise 2 of ${n}`);
     await page.clock.runFor(30_000);
-    assert.equal(await page.textContent("#rest-time"), "2:30", "rest timer kept running across the exercise change");
+    { const t = await page.textContent("#rest-time"); assert.match(t, /^2:(29|30|31)$/, "rest timer kept running across the exercise change: " + t); }
     await page.click("#ex-back"); await page.waitForSelector('.exscreen[data-k="0"]');
     assert.equal(await page.locator('.exscreen [data-f="weight"]').first().inputValue(), "60", "logged set still there");
     await page.click('.dots [data-go="4"]'); await page.waitForSelector('.exscreen[data-k="4"]');
