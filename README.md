@@ -27,7 +27,7 @@ and only work for the home-screen app.
 
 ## Tests
 `npm install && npm test`
-- 9 unit tests: post-workout macros, the bulk targets, the calorie floor, weigh-in
+- 10 unit tests: post-workout macros, the bulk targets, the calorie floor, weigh-in
   adjustment, autoregulation, notification text, e1RM and set planning.
 - Headless Chromium e2e (Pixel 7 emulation, `Notification` mocked, `showNotification`
   spied):

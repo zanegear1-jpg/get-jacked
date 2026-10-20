@@ -115,14 +115,28 @@ export function autoregulate(weeklySets, perfChange, recovery) {
 }
 
 /** Weekly weigh-in correction. Keeps the gain rate inside 0.25-0.5% bodyweight/week; never drops below maintenance. */
-export function calorieAdjust(prevWeekAvgKg, thisWeekAvgKg, currentAdjust = 0) {
+export function calorieAdjust(prevWeekAvgKg, thisWeekAvgKg, currentAdjust = 0, minAdjust = -Infinity) {
   const E = EVIDENCE;
   if (!(prevWeekAvgKg > 0 && thisWeekAvgKg > 0)) return { kcalAdjust: currentAdjust, change: 0, ratePct: null };
   const ratePct = ((thisWeekAvgKg - prevWeekAvgKg) / prevWeekAvgKg) * 100;
   let change = 0;
   if (ratePct < E.gainMinPctPerWeek) change = 150;
   else if (ratePct > E.gainMaxPctPerWeek) change = -100;
-  return { kcalAdjust: currentAdjust + change, change, ratePct: +ratePct.toFixed(2) };
+  // Never let the stored adjustment sink below the bulk floor (maintenance +5%), or later +150 steps would be swallowed.
+  const base = change > 0 ? Math.max(currentAdjust, minAdjust) : currentAdjust;
+  const kcalAdjust = Math.max(base + change, Math.min(currentAdjust, minAdjust));
+  return { kcalAdjust, change: kcalAdjust - currentAdjust, ratePct: +ratePct.toFixed(2) };
+}
+
+/** Lowest weigh-in adjustment that still changes anything: the one that lands exactly on the maintenance +5% floor. */
+export function minKcalAdjust(profile) {
+  const t = dailyTargets({ ...profile, kcalAdjust: 0 });
+  return round5(t.maintenance * 1.05) - t.kcal;
+}
+
+/** Local calendar date as YYYY-MM-DD (toISOString() would give the UTC date, a day behind in NZ mornings). */
+export function localDate(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 /** Planned sets per exercise this session: half the weekly sets for each muscle (2x/week), split across its exercises. */

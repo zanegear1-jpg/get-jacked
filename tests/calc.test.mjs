@@ -57,3 +57,18 @@ test("e1rm and planned sets", () => {
   assert.equal(plan.bench + plan.inclinedb, 7); // chest 14/wk -> 7 this session
   for (const s of SESSIONS) for (const e of s.exercises) assert.ok(plan[e.id] === undefined || plan[e.id] >= 1);
 });
+
+test("weigh-in trims never sink the stored adjustment below the maintenance +5% floor", async () => {
+  const { minKcalAdjust, localDate } = await import("../calc.js");
+  const prof = { bodyweightKg: 80, maintenanceKcal: 2800 }; // 3220 base, floor 2940 -> min adjust -280
+  assert.equal(minKcalAdjust(prof), -280);
+  let adj = 0;
+  for (let i = 0; i < 5; i++) adj = calorieAdjust(80, 81, adj, minKcalAdjust(prof)).kcalAdjust; // gaining 1.25%/wk
+  assert.equal(adj, -280);
+  assert.equal(dailyTargets({ ...prof, kcalAdjust: adj }).kcal, 2940);
+  const up = calorieAdjust(80, 80.05, adj, minKcalAdjust(prof)); // then gain stalls -> +150 must take effect
+  assert.equal(up.change, 150);
+  assert.equal(dailyTargets({ ...prof, kcalAdjust: up.kcalAdjust }).kcal, 3090);
+  assert.equal(calorieAdjust(80, 80.05, -500, -280).kcalAdjust, -130, "legacy over-trimmed adjustment recovers");
+  assert.match(localDate(new Date(2026, 9, 21, 7, 30)), /^2026-10-21$/);
+});

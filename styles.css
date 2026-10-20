@@ -15,10 +15,10 @@ label{display:block;margin:10px 0 4px;font-weight:600}
 input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--b);background:var(--card2);color:var(--fg);font-size:16px}
 button{font:inherit;border:0;border-radius:99px;padding:12px 18px;background:var(--card2);color:var(--fg);font-weight:700;cursor:pointer}
 button.primary{background:var(--accent);color:var(--accent-fg);width:100%;padding:14px;font-size:17px}
-button.small{padding:6px 12px;font-size:13px}
+button.small{padding:6px 14px;font-size:13px;min-height:40px}
 .row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
-.set{display:grid;grid-template-columns:28px 1fr 1fr 44px;gap:6px;align-items:center;margin:6px 0}
-.set input{padding:10px}.set input[type=checkbox]{width:28px;height:28px;accent-color:var(--ok)}
+.set{display:grid;grid-template-columns:28px 1fr 1fr 48px;gap:6px;align-items:center;margin:6px 0}
+.set input{padding:10px}.set input[type=checkbox]{width:40px;height:40px;margin:0;accent-color:var(--ok)}
 .seg{display:flex;gap:6px}.seg button{flex:1}.seg button.on{background:var(--accent);color:var(--accent-fg)}
 table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 4px;border-bottom:1px solid var(--b);text-align:left}
 .up{color:var(--ok)}.down{color:var(--bad)}.ok{color:var(--ok)}.warn{color:var(--warn)}

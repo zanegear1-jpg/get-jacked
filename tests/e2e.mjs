@@ -102,6 +102,36 @@ try {
     ok(`denied -> fallback card "${expected.proteinG} g protein + ${expected.carbG} g carbs", no notification`);
     await ctx.close();
   }
+  // 3) regressions: empty finish is refused; a skipped muscle keeps its volume; weigh-in refreshes Settings
+  {
+    const ctx = await browser.newContext({ ...devices["Pixel 7"] });
+    await ctx.addInitScript(mock("denied"));
+    const page = await ctx.newPage();
+    const errors = []; page.on("pageerror", (e) => errors.push(String(e)));
+    await page.goto(BASE); await page.fill("#bw", "80"); await page.click("#ob-go");
+    await page.click("#start"); await page.waitForSelector("#finish");
+    await page.click("#finish");
+    assert.equal(await page.isVisible("#finish-err"), true, "empty finish shows an error");
+    let s = await page.evaluate(() => window.__massplan.state);
+    assert.equal(s.history.length, 0); assert.ok(s.active, "workout still active"); assert.equal(s.weeklySets.chest, 14);
+    // tick only the bench sets: chest trained, back/arms/delts skipped
+    const bench = page.locator('[data-ex="bench"]');
+    const nb = await bench.locator('input[data-f="done"]').count();
+    for (let i = 0; i < nb; i++) { await bench.locator('input[data-f="weight"]').nth(i).fill("60"); await bench.locator('input[data-f="done"]').nth(i).check(); }
+    await page.click("#finish"); await page.waitForSelector("#fallback-card");
+    s = await page.evaluate(() => window.__massplan.state);
+    assert.equal(s.history.length, 1); assert.equal(s.weeklySets.chest, 15); assert.equal(s.weeklySets.back, 14); assert.equal(s.weeklySets.biceps, 10);
+    ok("empty finish refused; only trained muscles get volume changes");
+    await page.goto(BASE + "#/settings"); await page.fill("#wi", "81.5"); await page.click("#wi-add");
+    assert.equal(await page.inputValue("#bw"), "81.5", "bodyweight field follows the weigh-in");
+    await page.click("#st-save");
+    s = await page.evaluate(() => window.__massplan.state);
+    assert.equal(s.profile.bodyweightKg, 81.5, "Save after a weigh-in keeps the new bodyweight");
+    assert.ok((await page.textContent("#view")).includes("81.5 kg"), "weigh-in list refreshed");
+    assert.equal(errors.length, 0, errors.join("\n"));
+    ok("weigh-in updates the bodyweight field and list; Save doesn't revert it");
+    await ctx.close();
+  }
 } finally {
   await browser.close(); server.kill();
 }

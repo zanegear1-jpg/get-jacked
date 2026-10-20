@@ -1,4 +1,4 @@
-import { EVIDENCE as E, dailyTargets, postWorkout, notificationText, e1rm, autoregulate, calorieAdjust, plannedSets, validBodyweight } from "./calc.js";
+import { EVIDENCE as E, dailyTargets, postWorkout, notificationText, e1rm, autoregulate, calorieAdjust, plannedSets, validBodyweight, minKcalAdjust, localDate } from "./calc.js";
 import { SESSIONS, MUSCLES, START_WEEKLY_SETS } from "./program.js";
 import { sendPostWorkout, ensurePermission, permissionState } from "./notify.js";
 
@@ -97,7 +97,7 @@ function onboarding() {
   $("#ob-go").onclick = () => {
     const p = readProfile();
     if (!p) { $("#ob-err").hidden = false; return; }
-    S.profile = p; S.weighIns.push({ date: new Date().toISOString().slice(0, 10), kg: p.bodyweightKg }); save(); go("today");
+    S.profile = p; S.weighIns.push({ date: localDate(), kg: p.bodyweightKg }); save(); go("today");
   };
 }
 
@@ -114,7 +114,7 @@ function today() {
   <div class="card">
     <strong>Daily bulk targets</strong>
     <table>
-      <tr><td>Calories</td><td><b>${t.kcal}</b> kcal ${t.goalGiven ? "(your goal)" : `(maintenance ${t.maintenance}${t.maintenanceIsEstimate ? " est." : ""} +${Math.round(t.surplus * 100)}%${S.kcalAdjust ? `, ${S.kcalAdjust > 0 ? "+" : ""}${S.kcalAdjust} weigh-in adj.` : ""})`}</td></tr>
+      <tr><td>Calories</td><td><b>${t.kcal}</b> kcal ${t.goalGiven ? "(your goal)" : `(maintenance ${t.maintenance}${t.maintenanceIsEstimate ? " est." : ""} +${+(t.surplus * 100).toFixed(1)}%${S.kcalAdjust ? `, ${S.kcalAdjust > 0 ? "+" : ""}${S.kcalAdjust} weigh-in adj.` : ""})`}</td></tr>
       <tr><td>Protein</td><td><b>${t.proteinG} g</b> (2.2 g/kg, over 4+ meals)</td></tr>
       <tr><td>Carbs</td><td><b>${t.carbG} g</b> (at least ${t.carbMinG} g)</td></tr>
       <tr><td>Fat</td><td><b>${t.fatG} g</b></td></tr>
@@ -161,6 +161,7 @@ function workout() {
     <div class="seg" id="recovery">${["good", "ok", "poor"].map((r) => `<button type="button" data-r="${r}" class="${S.active.recovery === r ? "on" : ""}">${r[0].toUpperCase() + r.slice(1)}</button>`).join("")}</div>
     <p class="small muted">Good + performance held or up: a set is added next week. Poor or performance down: volume backs off.</p>
   </div>
+  <p id="finish-err" class="err" hidden>Tick at least one set as done first, or discard the workout.</p>
   <button class="primary" id="finish">Finish workout</button>
   <p><button class="small" id="discard">Discard workout</button></p>`;
 
@@ -189,6 +190,9 @@ export async function finishWorkout() {
   const s = SESSIONS[a.sessionIdx % SESSIONS.length];
   const durationMin = (Date.now() - a.startedAt) / 60000;
   const hardSets = Object.values(a.exercises).reduce((n, x) => n + x.sets.filter((st) => st.done).length, 0);
+  if (!hardSets) { const e = $("#finish-err"); if (e) e.hidden = false; return { mode: "none", reason: "no-sets" }; }
+  const doneByMuscle = {};
+  for (const ex of s.exercises) doneByMuscle[ex.muscle] = (doneByMuscle[ex.muscle] || 0) + (a.exercises[ex.id]?.sets.filter((st) => st.done).length || 0);
   const pw = postWorkout(S.profile.bodyweightKg, { hardSets, durationMin });
   const notifying = sendPostWorkout(pw); // permission prompt happens here, still inside the tap
 
@@ -197,6 +201,7 @@ export async function finishWorkout() {
   const seen = new Set();
   for (const ex of s.exercises) {
     if (seen.has(ex.muscle)) continue; seen.add(ex.muscle);
+    if (!doneByMuscle[ex.muscle]) continue; // skipped muscle: no volume change
     const now = e1rm(a.exercises[ex.id].sets), last = lastFor(ex.id);
     const prev = last ? e1rm(last.sets) : 0;
     const perf = now > 0 && prev > 0 ? (now - prev) / prev : null;
@@ -234,7 +239,7 @@ function summary() {
     <code class="calc">${esc(calcText(pw))}</code>
     <p class="small"><a href="#/why">Why this works →</a></p></div>
   <div class="card"><strong>Volume for next week (auto-regulated)</strong>
-    <table>${L.volume.map((v) => `<tr><td>${MUSCLES[v.muscle]}</td><td>${v.before} → <b>${v.after}</b> sets/wk</td><td class="${v.after > v.before ? "up" : v.after < v.before ? "down" : "muted"}">${v.reason}${v.perf === null ? " (first time)" : ` (${v.perf >= 0 ? "+" : ""}${(v.perf * 100).toFixed(1)}% e1RM)`}</td></tr>`).join("")}</table></div>
+    <table>${L.volume.map((v) => `<tr><td>${MUSCLES[v.muscle]}</td><td style="white-space:nowrap">${v.before} → <b>${v.after}</b> sets/wk</td><td class="${v.after > v.before ? "up" : v.after < v.before ? "down" : "muted"}">${v.reason}${v.perf === null ? " (first time)" : ` (${v.perf >= 0 ? "+" : ""}${(v.perf * 100).toFixed(1)}% e1RM)`}</td></tr>`).join("")}</table></div>
   <button class="primary" onclick="location.hash='#/today'">Done</button>`;
 }
 
@@ -326,10 +331,12 @@ function settings() {
   };
   $("#wi-add").onclick = () => {
     const kg = parseFloat($("#wi").value); if (!validBodyweight(kg)) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDate();
     S.weighIns = S.weighIns.filter((w) => w.date !== today).concat({ date: today, kg });
     S.profile.bodyweightKg = kg;
-    const msg = weeklyCheck(); save(); $("#wi-msg").textContent = msg || "Logged."; 
+    const msg = weeklyCheck(); save();
+    settings(); // refresh the bodyweight field and the weigh-in list so a later Save can't revert it
+    $("#wi-msg").textContent = msg || "Logged.";
   };
   $("#perm-btn").onclick = async () => { $("#perm").textContent = await ensurePermission(); };
   $("#perm-test").onclick = async () => {
@@ -343,10 +350,10 @@ function weeklyCheck() {
   const DAY = 864e5, now = Date.now();
   if (now - S.lastKcalAdjustAt < 7 * DAY) return "";
   const avg = (from, to) => { const xs = S.weighIns.filter((w) => { const t = Date.parse(w.date); return t > now - from * DAY && t <= now - to * DAY; }).map((w) => w.kg); return xs.length ? xs.reduce((a, b) => a + b) / xs.length : 0; };
-  const r = calorieAdjust(avg(14, 7), avg(7, -1), S.kcalAdjust);
+  const r = calorieAdjust(avg(14, 7), avg(7, -1), S.kcalAdjust, minKcalAdjust(S.profile));
   if (r.ratePct === null) return "";
   S.kcalAdjust = r.kcalAdjust; S.lastKcalAdjustAt = now;
-  return r.change > 0 ? `Gaining ${r.ratePct}%/wk, under target: +${r.change} kcal/day.` : r.change < 0 ? `Gaining ${r.ratePct}%/wk, faster than needed: ${r.change} kcal/day.` : `Gaining ${r.ratePct}%/wk: right on target.`;
+  return r.change > 0 ? `Gaining ${r.ratePct}%/wk, under target: +${r.change} kcal/day.` : r.change < 0 ? `Gaining ${r.ratePct}%/wk, faster than needed: ${r.change} kcal/day.` : r.ratePct > E.gainMaxPctPerWeek ? `Gaining ${r.ratePct}%/wk, faster than needed, but calories are already at the bulk floor (maintenance +5%).` : `Gaining ${r.ratePct}%/wk: right on target.`;
 }
 
 render();
