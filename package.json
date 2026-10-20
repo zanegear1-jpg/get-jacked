@@ -1,0 +1,11 @@
+{
+  "name": "get-jacked",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/calc.test.mjs && node tests/e2e.mjs",
+    "serve": "python3 -m http.server 8088"
+  },
+  "devDependencies": { "playwright": "1.63.0" }
+}

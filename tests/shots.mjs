@@ -1,0 +1,24 @@
+import { chromium, devices } from "playwright";
+import { spawn } from "node:child_process";
+const PORT=9000+Math.floor(Math.random()*800), BASE=`http://localhost:${PORT}/`;
+const srv=spawn("python3",["-m","http.server",String(PORT),"--bind","127.0.0.1"],{cwd:new URL("..",import.meta.url).pathname,stdio:"ignore"});
+await new Promise(r=>setTimeout(r,700));
+const b=await chromium.launch({channel:"chromium"});
+const ctx=await b.newContext({...devices["Pixel 7"]});
+await ctx.grantPermissions(["notifications"],{origin:BASE.slice(0,-1)});
+const p=await ctx.newPage();
+await p.goto(BASE); await p.screenshot({path:"screenshots/1-onboarding.png"});
+await p.fill("#bw","80"); await p.click("#ob-go"); await p.waitForSelector("#start");
+await p.screenshot({path:"screenshots/2-today.png"});
+await p.click("#start"); await p.waitForSelector("#finish");
+const bx=p.locator('input[data-f="done"]'); const n=await bx.count();
+for(let i=0;i<n;i++){await p.locator('input[data-f="weight"]').nth(i).fill("50"); await bx.nth(i).check();}
+await p.screenshot({path:"screenshots/3-workout.png"});
+await p.evaluate(()=>{window.__massplan.state.active.startedAt=Date.now()-75*60000});
+await p.evaluate(()=>navigator.serviceWorker.ready);
+await p.click("#finish"); await p.waitForSelector("#notify-status,#fallback-card");
+const real=await p.evaluate(async()=>{const r=await navigator.serviceWorker.ready;const ns=await r.getNotifications();return {perm:Notification.permission,count:ns.length,title:ns[0]?.title}});
+console.log("REAL (unmocked) notification:",JSON.stringify(real));
+await p.screenshot({path:"screenshots/4-summary.png",fullPage:true});
+await p.goto(BASE+"#/why"); await p.screenshot({path:"screenshots/5-why.png",fullPage:true});
+await b.close(); srv.kill();
