@@ -21,8 +21,17 @@
     <button id="install-btn" class="small" hidden>Install app</button>
   </header>
   <main id="view" aria-live="polite"></main>
+  <div id="rest" class="rest" hidden role="timer" aria-live="off">
+    <div class="rest-fill" id="rest-fill"></div>
+    <div class="rest-main"><span class="rest-time" id="rest-time">0:00</span><span class="rest-label small" id="rest-label">Rest</span></div>
+    <button id="rest-minus" type="button" aria-label="Rest 15 seconds less">−15s</button>
+    <button id="rest-plus" type="button" aria-label="Rest 15 seconds more">+15s</button>
+    <button id="rest-skip" type="button">Skip</button>
+  </div>
+  <div id="lightbox" class="lightbox" hidden></div>
+  <div id="photo" class="lightbox photo" hidden></div>
   <nav class="bottom" id="nav" hidden>
-    <a href="#/today">Today</a><a href="#/workout">Workout</a><a href="#/why">Why this works</a><a href="#/settings">Settings</a>
+    <a href="#/today">Today</a><a href="#/workout">Workout</a><a href="#/progress">Progress</a><a href="#/why">Why</a><a href="#/settings">Settings</a>
   </nav>
   <noscript>Get Jacked needs JavaScript.</noscript>
   <script type="module" src="app.js"></script>

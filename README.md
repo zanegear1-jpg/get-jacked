@@ -16,26 +16,26 @@ iPhone (minimal): Safari → Share → **Add to Home Screen**. Web notifications
 and only work for the home-screen app.
 
 ## What's in it
-- `manifest.webmanifest`: standalone, theme/background `#111827`, 192/512 "any" and
-  "maskable" icons, a start-workout shortcut.
-- `sw.js`: caches the app shell (cache-first, refreshed in the background) and handles
-  notification taps, which open the summary.
-- `calc.js`: all the maths (pure functions, unit tested). `program.js`: the 4-day
-  upper/lower split. `notify.js`: permission and `registration.showNotification`, with a
-  fallback card.
-- Screens: onboarding, Today, Workout, Summary, Why this works, Settings.
+- `program.js`: exercise library (full gym / dumbbells / home bodyweight + bands) and the split
+  generator: 3 days full body, 4 upper/lower, 5 upper/lower + push/pull/legs, 6 PPL ×2. Every major
+  muscle ≥2×/week at 10–20 sets/week; direct glute, rear-delt and ab work at 6–12. Novices get easier
+  swaps (lat pulldown, assisted dips).
+- `calc.js`: all the maths (pure, unit tested): bulk targets whose macros always add up, post-workout
+  meal, double progression + "N more reps to go heavier" status, starting-weight helper (Epley),
+  rest times, auto-regulation (≤ +1 set per muscle per week), weekly tracker, deload check.
+- `state.js`: saved-state migration. The storage key is still `massplan.v1`, so old data carries over.
+- `notify.js`: permission + `registration.showNotification`, with a fallback card.
+- `sw.js`: offline app shell (cache-first, refreshed in the background), notification taps.
+- `images.js` + `img/ex/`: exercise photos (start | finish) from free-exercise-db (public domain, Unlicense), resized to small WebP, cached offline; a muscle icon where there is no good match.
+- Screens: onboarding (or restore a backup), Today (deload card, week summary, macros), Workout
+  (Start button, per-set kg/reps/RIR, rest timer that starts on tick with ±15 s and beep/vibrate, swap,
+  GO HEAVIER badge, starting-weight helper, calibration-week tip), Summary (post-workout macros, new
+  bests, volume changes), Progress (weekly sets vs target, e1RM chart, history), Why this works,
+  Settings (days, equipment, experience, calories, weigh-ins, JSON export/import).
 
 ## Tests
-`npm install && npm test`
-- 10 unit tests: post-workout macros, the bulk targets, the calorie floor, weigh-in
-  adjustment, autoregulation, notification text, e1RM and set planning.
-- Headless Chromium e2e (Pixel 7 emulation, `Notification` mocked, `showNotification`
-  spied):
-  - the finish flow sends one notification with the computed numbers;
-  - permission denied gives the in-app card and no notification;
-  - autoregulation runs;
-  - "Why this works" shows the calculation and citations;
-  - Chrome's installability check passes;
-  - the app works offline.
-- `node tests/shots.mjs` takes screenshots and also checks a **real, unmocked**
-  notification through the service worker.
+`npm install && npm test`: unit tests (`tests/calc.test.mjs`, `tests/program.test.mjs`) and a
+headless Chromium e2e run (`tests/e2e.mjs`, Pixel 7, notifications mocked) covering the finish flow,
+notifications and the denied fallback, offline use, installability, the rest timer (fake clock), swaps,
+progression, settings, tracker/chart/history, export/import, v1 migration, deload and calorie goals.
+`node tests/shots.mjs` retakes `screenshots/` and checks a real, unmocked notification.
