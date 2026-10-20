@@ -9,6 +9,8 @@ const b = await chromium.launch({ channel: "chromium" });
 const ctx = await b.newContext({ ...devices["Pixel 7"] });
 await ctx.grantPermissions(["notifications"], { origin: BASE.slice(0, -1) });
 const p = await ctx.newPage();
+await p.goto(BASE); await p.waitForSelector("#lock-pw"); await p.screenshot({ path: "screenshots/0-lock.png" });
+await p.fill("#lock-pw", "zane"); await p.click("#lock-go");
 const shot = (n, full = false) => p.screenshot({ path: `screenshots/${n}.png`, fullPage: full });
 await p.goto(BASE); await p.waitForSelector("#bw"); await shot("1-onboarding");
 await p.fill("#bw", "80"); await p.click("#ob-go"); await p.waitForSelector("#start");

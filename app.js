@@ -55,7 +55,37 @@ function targets() { return dailyTargets({ ...S.profile, kcalAdjust: S.kcalAdjus
 
 // ---------- views ----------
 const routes = { onboarding, today, workout, summary, progress, why, settings };
+// ---------- lock screen (client-side deterrent only: this is a public static site) ----------
+const LOCK_KEY = "getjacked.unlocked";
+const PASS_SHA256 = "501e1aff9d6d646c2e6238a6deb4f2d624938ecc7f542903b74dd2fa210b3463"; // SHA-256 of the lower-cased password
+const isUnlocked = () => { try { return localStorage.getItem(LOCK_KEY) === "1"; } catch { return false; } };
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function lockScreen() {
+  $("#nav").hidden = true; $("#rest").hidden = true; document.body.classList.add("locked");
+  view.innerHTML = `
+  <form class="lock" id="lock" autocomplete="off">
+    <img src="icons/icon-192.png" alt="" width="88" height="88">
+    <h1>Get Jacked</h1>
+    <p class="muted">Enter the password to open the app.</p>
+    <label for="lock-pw" class="sr">Password</label>
+    <input id="lock-pw" type="password" autocomplete="current-password" placeholder="Password" required>
+    <p id="lock-err" class="err" hidden>Wrong password. Try again.</p>
+    <button class="primary" id="lock-go" type="submit">Unlock</button>
+  </form>`;
+  const inp = $("#lock-pw"); inp.focus();
+  $("#lock").onsubmit = async (e) => {
+    e.preventDefault();
+    const ok = (await sha256Hex(inp.value.trim().toLowerCase())) === PASS_SHA256;
+    if (!ok) { $("#lock-err").hidden = false; inp.select(); return; }
+    localStorage.setItem(LOCK_KEY, "1"); document.body.classList.remove("locked"); render(); // routes to whatever the URL asked for (e.g. #/summary from a notification)
+  };
+}
+
 function render() {
+  if (!isUnlocked()) return lockScreen();
   let r = (location.hash.replace(/^#\//, "") || "today").split("?")[0];
   if (!S.profile && r !== "why") r = "onboarding";
   if (!routes[r]) r = "today";
@@ -401,7 +431,7 @@ function startRest(sec, label) {
 const fmt = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 function restTick() {
   const bar = $("#rest"), r = S.active?.rest;
-  if (!r || !S.profile) { bar.hidden = true; document.body.classList.remove("resting"); return; }
+  if (!r || !S.profile || !isUnlocked()) { bar.hidden = true; document.body.classList.remove("resting"); return; }
   const left = r.endAt - Date.now();
   bar.hidden = false; document.body.classList.add("resting");
   if (left <= 0) {
@@ -641,7 +671,9 @@ function settings() {
     <p id="bk-msg" class="small"></p></div>
   <div class="card small muted">Install on Android: open in Chrome → tap <b>Install app</b> (top right) or ⋮ → <b>Install app</b>.<br>
     iPhone: Safari → Share → Add to Home Screen.</div>
+  <div class="row"><button id="lock-app">Lock app</button></div>
   <p><button class="small" id="reset">Reset all data</button></p>`;
+  $("#lock-app").onclick = () => { localStorage.removeItem(LOCK_KEY); go("today"); render(); };
   $("#st-save").onclick = () => {
     const r = readProfile(); if (r.error) { $("#st-err").textContent = r.error; $("#st-err").hidden = false; return; }
     const np = r.profile, changed = np.days !== p.days || np.equipment !== p.equipment || np.experience !== p.experience;

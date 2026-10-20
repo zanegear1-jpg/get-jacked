@@ -27,6 +27,7 @@ and only work for the home-screen app.
 - `notify.js`: permission + `registration.showNotification`, with a fallback card.
 - `sw.js`: offline app shell (cache-first, refreshed in the background), notification taps.
 - `images.js` + `img/ex/`: exercise photos (start | finish) from free-exercise-db (public domain, Unlicense), resized to small WebP, cached offline; a muscle icon where there is no good match.
+- Lock screen: password checked against a SHA-256 hash in `app.js` (client-side deterrent only); the device stays unlocked until **Lock app** in Settings.
 - Screens: onboarding (or restore a backup), Today (deload card, week summary, macros), Workout
   (Start button, per-set kg/reps/RIR, rest timer that starts on tick with ±15 s and beep/vibrate, swap,
   GO HEAVIER badge, starting-weight helper, calibration-week tip), Summary (post-workout macros, new

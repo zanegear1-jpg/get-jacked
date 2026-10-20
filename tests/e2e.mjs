@@ -12,7 +12,9 @@ await new Promise((r) => setTimeout(r, 800));
 const results = [];
 const ok = (name) => { results.push(name); console.log("PASS", name); };
 
-const mock = (grant) => `
+const UNLOCK = `try { if (location.origin.startsWith("http")) localStorage.setItem("getjacked.unlocked", "1"); } catch {}`;
+const mock = (grant, unlock = true) => `
+  ${unlock ? UNLOCK : ""}
   window.__notes = []; window.__permRequests = 0;
   let __perm = "default";
   window.Notification = class { static get permission() { return __perm; }
@@ -135,6 +137,38 @@ try {
     ok("weigh-in updates the bodyweight field and list; Save doesn't revert it");
     await ctx.close();
   }
+  // 0) lock screen: shows first, wrong password errors, right one (any case) unlocks and routes; re-lock; offline
+  {
+    const ctx = await browser.newContext({ ...devices["Pixel 7"] });
+    await ctx.addInitScript(mock("denied", false));
+    const page = await ctx.newPage();
+    const errors = []; page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("dialog", (d) => d.accept());
+    await page.goto(BASE); await page.waitForSelector("#lock-pw");
+    assert.equal(await page.isVisible("#nav"), false); assert.equal(await page.locator("#bw").count(), 0, "nothing renders before unlock");
+    await page.fill("#lock-pw", "wrong"); await page.click("#lock-go");
+    await page.waitForSelector("#lock-err:not([hidden])");
+    await page.fill("#lock-pw", " ZaNe "); await page.click("#lock-go");
+    await page.waitForSelector("#bw");
+    await page.reload(); await page.waitForSelector("#bw"); // stays unlocked
+    await page.fill("#bw", "80"); await page.click("#ob-go"); await page.waitForSelector("#start");
+    const src = await (await page.request.get(BASE + "app.js")).text();
+    assert.ok(!/["'`]zane["'`]/i.test(src), "plain-text password not in the code");
+    await page.goto(BASE + "#/settings"); await page.click("#lock-app"); await page.waitForSelector("#lock-pw");
+    await page.goto(BASE + "#/summary"); await page.reload(); await page.waitForSelector("#lock-pw"); // e.g. a notification tap while locked
+    await page.fill("#lock-pw", "zane"); await page.press("#lock-pw", "Enter");
+    await page.waitForSelector("text=No workout yet"); // routed to the requested screen after unlocking
+    assert.equal((await page.evaluate(() => window.__massplan.state)).profile.bodyweightKg, 80, "saved data intact");
+    await page.waitForFunction(() => navigator.serviceWorker.controller);
+    await page.goto(BASE + "#/settings"); await page.click("#lock-app"); await page.waitForSelector("#lock-pw");
+    await ctx.setOffline(true); await page.reload(); await page.waitForSelector("#lock-pw");
+    await page.fill("#lock-pw", "zane"); await page.click("#lock-go"); await page.waitForSelector("#start");
+    await ctx.setOffline(false);
+    assert.equal(errors.length, 0, errors.join("\n"));
+    ok("lock screen: wrong password errors, ' ZaNe ' unlocks, stays unlocked, Lock app re-locks, routes to #/summary after unlock, works offline");
+    await ctx.close();
+  }
+
   // ---------- new features ----------
   const fresh = async (opts = {}) => {
     const ctx = await browser.newContext({ ...devices["Pixel 7"], acceptDownloads: true });
