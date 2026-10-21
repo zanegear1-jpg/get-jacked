@@ -7,5 +7,7 @@ const DEFAULTS = {
   storagePrefix: "", // "" keeps Zane's original keys (massplan.v1, getjacked.unlocked) so nothing moves
   passSha256: "501e1aff9d6d646c2e6238a6deb4f2d624938ecc7f542903b74dd2fa210b3463", // SHA-256 of the lower-cased password
   assetBase: "", // prefix for shared files referenced from page-relative URLs (exercise images); "../" in a friend folder
+  theme: "", // a friend's theme name (themes/<name>/); only adds styling hooks, e.g. the "hard sets" span on Today
+  exImgDir: "", // alternative folder for the exercise illustrations (a friend's theme, e.g. "img/ex-orange/"); "" = img/ex/
 };
 export const CONFIG = Object.freeze({ ...DEFAULTS, ...(globalThis.GJ_CONFIG || {}) });

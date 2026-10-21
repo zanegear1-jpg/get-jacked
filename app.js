@@ -205,7 +205,7 @@ function today() {
   ${deloadCard()}
   <div class="card hero">
     <div class="muted small">Next session · ${S.profile.days} days/week · ${esc(EQUIPMENT[S.profile.equipment]?.label)}</div>
-    <div class="big">${esc(s.name)} · ${totalSets} hard sets</div>
+    <div class="big">${esc(s.name)} · ${CONFIG.theme ? `<span class="hs">${totalSets} hard sets</span>` : `${totalSets} hard sets`}</div>
     <ul class="small exlist">${s.exercises.map((e) => `<li>${esc(e.name)} <span class="muted">${plan[e.id]}×${e.reps[0]}–${e.reps[1]}</span></li>`).join("")}</ul>
     <button class="primary" id="start" style="margin-top:10px">${S.active ? "Resume workout" : "Start workout"}</button>
   </div>

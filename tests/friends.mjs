@@ -44,7 +44,11 @@ try {
     // shared app code + exercise images come from the root via ../
     await page.click("#start"); await page.waitForSelector(".exhero img");
     const img = await page.locator(".exhero img").evaluate((i) => i.decode().then(() => ({ src: i.src, w: i.naturalWidth }), () => ({ src: i.src, w: 0 })));
-    assert.equal(img.src.startsWith(BASE + "img/ex/"), true, img.src); assert.equal(img.w, 512);
+    assert.equal(img.src.startsWith(BASE + (f.theme === "falcon" ? "img/ex-orange/" : "img/ex/")), true, img.src); assert.equal(img.w, 512);
+    // theme: only the themed friend gets the extra stylesheet; the others keep the plain look
+    const sheets = await page.evaluate(() => [...document.styleSheets].map((x) => x.href));
+    assert.equal(sheets.some((h) => h?.includes("/themes/")), !!f.theme, `${f.slug} theme stylesheet`);
+    if (f.theme) assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector(".top img")).display), "none", "theme header icon");
     ok(`${f.slug}: car icon on lock screen; wrong passwords rejected; '${PASSWORDS[f.slug]}' (any case) unlocks; storage only under '${f.slug}:'; shared images load`);
     // manifest: own identity, scope and icons
     const man = await page.evaluate(async () => { const l = document.querySelector('link[rel="manifest"]'); return { href: l.href, json: await (await fetch(l.href)).json() }; });

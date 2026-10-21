@@ -21,7 +21,8 @@ const MUSCLE_ICON = `<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden
 export function exMedia(id) {
   const im = EX_IMG[id], ex = LIBRARY[id];
   if (!im || !ex) return null;
-  return { src: CONFIG.assetBase + im[0], source: im[1], alt: `${ex.name}: ${IMAGE_STYLE.layout === "pair" ? "start and finish positions" : "how to do it"}`, credit: IMAGE_STYLE.credit(im[1]) };
+  const file = CONFIG.exImgDir ? im[0].replace(/^img\/ex\//, CONFIG.exImgDir) : im[0];
+  return { src: CONFIG.assetBase + file, source: im[1], alt: `${ex.name}: ${IMAGE_STYLE.layout === "pair" ? "start and finish positions" : "how to do it"}`, credit: IMAGE_STYLE.credit(im[1]) };
 }
 const styleAttr = () => `style="object-position:${IMAGE_STYLE.thumbPosition};background:${IMAGE_STYLE.background}"`;
 

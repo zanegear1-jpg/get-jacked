@@ -229,8 +229,21 @@ test("friend folders (/ben/, /laychan/) are generated from the root app and up t
     const m = JSON.parse(files["manifest.webmanifest"]);
     assert.equal(m.name, "Get Jacked"); assert.equal(m.id, "./"); assert.equal(m.scope, "./"); assert.equal(m.start_url, "./#/today");
     assert.ok(m.icons.some((i) => i.purpose === "maskable" && i.sizes === "512x512"));
-    assert.match(files["sw.js"], new RegExp(`const VERSION = "get-jacked-v\\d+-${f.slug}"`));
-    assert.match(files["sw.js"], /"\.\.\/app\.js"/); assert.match(files["sw.js"], /"\.\/user\.js"/); assert.match(files["sw.js"], /"\.\.\/img\/ex\/bench\.webp"/);
+    assert.match(files["sw.js"], new RegExp(`const VERSION = "get-jacked-v\\d+-${f.slug}${f.theme ? `-${f.theme}-[0-9a-f]{8}` : ""}"`));
+    assert.match(files["sw.js"], /"\.\.\/app\.js"/); assert.match(files["sw.js"], /"\.\/user\.js"/);
+    if (!f.theme) {
+      assert.match(files["sw.js"], /"\.\.\/img\/ex\/bench\.webp"/);
+      assert.doesNotMatch(files["index.html"] + files["sw.js"] + user, /themes\/|ex-orange|"theme"/, "unthemed friend gets no theme");
+    } else {
+      // themed friend: extra stylesheet + body class, own image set (every file present), assets precached
+      const t = JSON.parse(fs.readFileSync(`${root}themes/${f.theme}/theme.json`, "utf8"));
+      assert.match(files["index.html"], new RegExp(`<link rel="stylesheet" href="\\.\\./styles\\.css">\\s*<link rel="stylesheet" href="\\.\\./themes/${f.theme}/${t.css}">`));
+      assert.match(files["index.html"], new RegExp(`<body class="theme-${f.theme}">`));
+      assert.match(user, new RegExp(`"theme": "${f.theme}"`)); assert.match(user, new RegExp(`"exImgDir": "${t.exImgDir}"`));
+      for (const a of [t.css, ...t.assets]) assert.ok(files["sw.js"].includes(`"../themes/${f.theme}/${a}"`), a);
+      assert.doesNotMatch(files["sw.js"], /"\.\.\/img\/ex\//, "themed friend precaches only its own image set");
+      for (const id of Object.keys(LIBRARY)) { assert.ok(files["sw.js"].includes(`"../${t.exImgDir}${id}.webp"`), id); assert.ok(fs.statSync(`${root}${t.exImgDir}${id}.webp`).size > 1000, id); }
+    }
     assert.match(files["index.html"], /<script src="user\.js"><\/script>\s*<script type="module" src="\.\.\/app\.js">/);
     for (const i of ["icon-192.png", "icon-512.png", "icon-maskable-192.png", "icon-maskable-512.png", "apple-touch-icon-180.png", "favicon-32.png"]) assert.ok(fs.statSync(`${root}${f.slug}/icons/${i}`).size > 200, i);
   }

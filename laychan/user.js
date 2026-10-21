@@ -4,5 +4,7 @@ window.GJ_CONFIG = {
   "user": "laychan",
   "storagePrefix": "laychan:",
   "passSha256": "d2323f25b4ada2f94cf1a913639c55e975606836b92ec087afd75b17df5ce198",
-  "assetBase": "../"
+  "assetBase": "../",
+  "theme": "falcon",
+  "exImgDir": "img/ex-orange/"
 };

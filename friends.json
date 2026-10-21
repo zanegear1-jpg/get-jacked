@@ -1,7 +1,7 @@
 {
-  "_note": "Friends' copies of Get Jacked. Passwords are stored only as SHA-256 of the lower-cased password. Run `npm run build:friends` after editing this file or the app; icons: python3 scripts/friend-icons.py <slug> (artwork in friends-src/<slug>-car.jpg).",
+  "_note": "Friends' copies of Get Jacked. Passwords are stored only as SHA-256 of the lower-cased password. Run `npm run build:friends` after editing this file or the app; icons: python3 scripts/friend-icons.py <slug> (artwork in friends-src/<slug>-car.jpg). Optional \"theme\": a folder in themes/ (theme.json + CSS + assets) restyling only that friend's copy.",
   "friends": [
     { "slug": "ben", "name": "Ben", "passSha256": "6700869c8ff7480e34a70a708b028700dbaa3a033b5652b903afe89f49a31456" },
-    { "slug": "laychan", "name": "Laychan", "passSha256": "d2323f25b4ada2f94cf1a913639c55e975606836b92ec087afd75b17df5ce198" }
+    { "slug": "laychan", "name": "Laychan", "passSha256": "d2323f25b4ada2f94cf1a913639c55e975606836b92ec087afd75b17df5ce198", "theme": "falcon" }
   ]
 }
