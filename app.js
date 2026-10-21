@@ -197,6 +197,9 @@ function wireDeload() {
 }
 
 const planFor = (idx) => { const p = program(), i = idx % p.length; return plannedSets(p[i], S.weeklySets, muscleFrequency(p), { deload: inDeload(), ordinal: muscleOrdinal(p, i) }); };
+// Xplosiv supplement clearance page: the red X floated at the top right of the exercise list, level with exercises 2-5
+// (the list text wraps around it, so long names never run under it). Opens outside the app (new tab / the phone's browser).
+const XPLOSIV_URL = "https://xplosiv.nz/clearance.html";
 function today() {
   const s = session(), plan = planFor(S.nextSession);
   const totalSets = Object.values(plan).reduce((a, b) => a + b, 0);
@@ -206,6 +209,7 @@ function today() {
   <div class="card hero">
     <div class="muted small">Next session · ${S.profile.days} days/week · ${esc(EQUIPMENT[S.profile.equipment]?.label)}</div>
     <div class="big">${esc(s.name)} · ${CONFIG.theme ? `<span class="hs">${totalSets} hard sets</span>` : `${totalSets} hard sets`}</div>
+    <span class="xpw"><a class="xp" id="xplosiv" href="${XPLOSIV_URL}" target="_blank" rel="noopener" aria-label="Xplosiv clearance deals"><img src="${CONFIG.assetBase}img/xplosiv-x.svg" alt="" width="101" height="76"></a></span>
     <ul class="small exlist">${s.exercises.map((e) => `<li>${esc(e.name)} <span class="muted">${plan[e.id]}×${e.reps[0]}–${e.reps[1]}</span></li>`).join("")}</ul>
     <button class="primary" id="start" style="margin-top:10px">${S.active ? "Resume workout" : "Start workout"}</button>
   </div>

@@ -104,3 +104,9 @@ body.locked .top .pill,body.locked #install-btn{display:none}
 .ov-pick{flex:1;text-align:left;display:flex;flex-direction:column;background:var(--card2);border-radius:12px;min-height:60px}
 .ov-pick.on{outline:2px solid var(--accent)}
 .center{text-align:center}
+/* Xplosiv clearance link on Today: floated beside exercises 2-5; the text wraps around it. The wrapper's top padding
+   moves it down a line, and shape-outside keeps that padding from pushing line 1 over (and it isn't tappable). */
+.xpw{float:right;padding-top:34px;margin:0 2px 6px 10px;shape-outside:inset(34px 0 0 0);pointer-events:none;line-height:0}
+.xp{display:block;pointer-events:auto;border-radius:10px;-webkit-tap-highlight-color:transparent;transition:transform .08s ease-out}
+.xp img{display:block;width:auto;height:clamp(70px,19.5vw,80px);filter:drop-shadow(0 2px 5px #0009)}
+.xp:active{transform:scale(.92)}.xp:focus-visible{outline:2px solid var(--accent);outline-offset:4px}

@@ -116,5 +116,32 @@ try {
     await ctx.close();
     ok("Zane's app installed first: friend links still load their own app, lock and worker; Zane's app unaffected");
   }
+  // Xplosiv clearance link on Today in every copy (Zane's root + each friend): right href, opens outside the app,
+  // labelled, image loads from the shared img/, and it never overlaps the exercise text at 360 or 390 px
+  for (const [who, path, pw] of [["zane", "", "zane"], ...friends.map((f) => [f.slug, f.slug + "/", PASSWORDS[f.slug]])]) {
+    for (const width of [360, 390]) {
+      const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }), page = await ctx.newPage();
+      await page.goto(BASE + path); await unlock(page, pw); await page.waitForSelector("#bw");
+      await page.fill("#bw", "90"); await page.selectOption("#days", "4"); await page.click("#ob-go"); await page.waitForSelector("#start");
+      const x = await page.$eval(".hero a#xplosiv", (a) => ({ href: a.getAttribute("href"), target: a.target, rel: a.rel, label: a.getAttribute("aria-label"), img: a.querySelector("img").src }));
+      assert.deepEqual({ ...x, img: undefined }, { href: "https://xplosiv.nz/clearance.html", target: "_blank", rel: "noopener", label: "Xplosiv clearance deals", img: undefined }, `${who}: link`);
+      assert.equal(x.img, BASE + "img/xplosiv-x.svg", `${who}: shared image`);
+      const geo = await page.evaluate(async () => {
+        const img = document.querySelector("#xplosiv img"); await img.decode();
+        const r = document.querySelector("#xplosiv").getBoundingClientRect(), hits = [];
+        for (const li of document.querySelectorAll(".hero .exlist li")) {
+          const rg = document.createRange(); rg.selectNodeContents(li);
+          for (const t of rg.getClientRects()) if (t.right > r.left && t.left < r.right && t.bottom > r.top && t.top < r.bottom) hits.push(li.textContent);
+        }
+        const lis = [...document.querySelectorAll(".hero .exlist li")].map((l) => l.getBoundingClientRect());
+        return { w: img.naturalWidth, h: r.height, hits, top: r.top, li2: lis[1].top, li6: lis[5].bottom, right: r.right, vw: innerWidth };
+      });
+      assert.ok(geo.w > 0, "X image loads"); assert.ok(geo.h >= 70 && geo.h <= 90, `X ${geo.h}px tall`);
+      assert.deepEqual(geo.hits, [], `${who} @${width}px: X overlaps exercise text`);
+      assert.ok(geo.top >= geo.li2 - 6 && geo.top < geo.li6, `${who} @${width}px: X level with the first exercises`); assert.ok(geo.right <= geo.vw, "on screen");
+      await ctx.close();
+    }
+  }
+  ok(`Xplosiv X on Today in ${["zane", ...friends.map((f) => f.slug)].join("/")}: href https://xplosiv.nz/clearance.html, target _blank rel noopener, labelled, 70-90 px, no overlap with exercise text at 360 + 390 px`);
   console.log("ALL FRIEND TESTS PASSED");
 } finally { await browser.close(); server?.kill(); }

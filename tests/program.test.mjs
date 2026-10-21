@@ -231,6 +231,7 @@ test("friend folders (/ben/, /laychan/) are generated from the root app and up t
     assert.ok(m.icons.some((i) => i.purpose === "maskable" && i.sizes === "512x512"));
     assert.match(files["sw.js"], new RegExp(`const VERSION = "get-jacked-v\\d+-${f.slug}${f.theme ? `-${f.theme}-[0-9a-f]{8}` : ""}"`));
     assert.match(files["sw.js"], /"\.\.\/app\.js"/); assert.match(files["sw.js"], /"\.\/user\.js"/);
+    assert.match(files["sw.js"], /"\.\.\/img\/xplosiv-x\.svg"/, "Xplosiv X precached");
     if (!f.theme) {
       assert.match(files["sw.js"], /"\.\.\/img\/ex\/bench\.webp"/);
       assert.doesNotMatch(files["index.html"] + files["sw.js"] + user, /themes\/|ex-orange|"theme"/, "unthemed friend gets no theme");
@@ -252,4 +253,6 @@ test("friend folders (/ben/, /laychan/) are generated from the root app and up t
   const { CONFIG } = await import("../config.js");
   assert.equal(CONFIG.passSha256, sha("zane")); assert.equal(CONFIG.storagePrefix, ""); assert.equal(CONFIG.assetBase, "");
   assert.match(fs.readFileSync(root + "sw.js", "utf8"), /"\.\/config\.js"/);
+  assert.match(fs.readFileSync(root + "sw.js", "utf8"), /"\.\/img\/xplosiv-x\.svg"/, "Xplosiv X in the shared precache");
+  assert.ok(fs.statSync(root + "img/xplosiv-x.svg").size > 100);
 });
