@@ -32,9 +32,14 @@ body.theme-falcon::before{content:"";position:fixed;inset:0;z-index:-1;backgroun
 
 /* ---------- Today ---------- */
 body.theme-falcon:has(#view > .card.hero #start)::before{background:#0a0a0a url(bg-today.webp) center top/cover no-repeat}
-body.theme-falcon:has(#view > .card.hero #start) .top{position:sticky;width:fit-content;margin:max(8px,env(safe-area-inset-top)) 0 0 12px;padding:6px 14px 6px 12px;border:0;border-radius:99px;background:#000c}
+/* header = floating dark pill over the car; stays sticky (with a gap above it) while the car scrolls away underneath */
+body.theme-falcon:has(#view > .card.hero #start) .top{position:sticky;top:max(8px,env(safe-area-inset-top));width:fit-content;height:44px;margin:max(8px,env(safe-area-inset-top)) 0 0 12px;padding:0 14px 0 12px;border:0;border-radius:99px;background:#000000d0;box-shadow:0 2px 12px #0007}
 .theme-falcon #view:has(> .card.hero #start) > h1{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);margin:0}
-.theme-falcon #view:has(> .card.hero #start)::before{content:"";display:block;position:relative;z-index:1;height:178px;margin:-46px -8px -30px;background:url(car.webp) center bottom/contain no-repeat;filter:drop-shadow(0 6px 10px #0009);pointer-events:none}
+/* car: part of the scrolling page top, from the very top of the screen (behind the status bar + header pill),
+   wider than the screen (nose + front wheel off the left, bumper to the right edge), sunburst behind it,
+   wheels tucked behind the first card's top edge */
+.theme-falcon #view:has(> .card.hero #start)::before{content:"";display:block;position:relative;z-index:0;height:calc(346px + max(0px, env(safe-area-inset-top) - 8px));margin:calc(-44px - max(8px, env(safe-area-inset-top))) -14px -172px;background:url(car.webp) left -16px bottom 120px/106% auto no-repeat,url(burst.webp) left -118px top -110px/680px auto no-repeat;pointer-events:none}
+.theme-falcon #view:has(> .card.hero #start) > .card{position:relative;z-index:1}
 .theme-falcon #view:has(> .card.hero #start){padding-top:0}
 .theme-falcon .card.hero{background:rgba(10,10,10,.88);padding:16px 16px 14px}
 .theme-falcon .hero .big{font-size:29px;line-height:1.2;margin:2px 0 4px}

@@ -1,7 +1,7 @@
 {
-  "_note": "Laychan's FG Falcon G6E theme (friends.json \"theme\": \"falcon\"). theme.css loads after styles.css on her copy only; body gets class theme-falcon. Assets are precached by her service worker. exImgDir = orange-highlight exercise illustrations made by recolor-ex.py from img/ex/ (originals untouched). Car art: friends/laychan-car.png (plate GETJKD) cut out; backgrounds generated.",
+  "_note": "Laychan's FG Falcon G6E theme (friends.json \"theme\": \"falcon\"). theme.css loads after styles.css on her copy only; body gets class theme-falcon. Assets are precached by her service worker. exImgDir = orange-highlight exercise illustrations made by recolor-ex.py from img/ex/ (originals untouched). Car art: friends/laychan-car.png (plate GETJKD) cut out with a white sticker outline; burst.webp from make-burst.py; backgrounds generated.",
   "css": "theme.css",
-  "assets": ["bg-today.webp", "bg-streaks.webp", "car.webp", "panel.webp"],
+  "assets": ["bg-today.webp", "bg-streaks.webp", "car.webp", "burst.webp", "panel.webp"],
   "exImgDir": "img/ex-orange/",
   "themeColor": "#0a0a0a"
 }
