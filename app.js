@@ -217,6 +217,7 @@ function today() {
     esc, name: s.name, totalSets, startLabel, active: !!S.active,
     first: ex0 && { sets: plan[ex0.id], reps: ex0.reps, rir: inDeload() ? "3–4" : "1–2", restMin: Math.round(restSeconds(ex0) / 30) / 2 },
     deload: deloadCard(), session: `<div class="card hero">${meta}${big}${xp}${list}</div>`,
+    sessionNoX: `<div class="card hero">${meta}${big}${list}</div>`, xplosiv: { url: XPLOSIV_URL, img: `${CONFIG.assetBase}img/xplosiv-x.svg` },
     week: weekSummaryLine(), nutrition: nutritionCard(), ios,
   }) : `
   <h1>Today: ${esc(s.name)}</h1>

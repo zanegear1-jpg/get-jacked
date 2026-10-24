@@ -1,5 +1,5 @@
 {
-  "_note": "Laychan's FG Falcon G6E theme (friends.json \"theme\": \"falcon\"). theme.css loads after styles.css on her copy only; body gets class theme-falcon; theme.js (after user.js) lays out her Today page (home v3). Assets are precached by her service worker. exImgDir = orange-highlight exercise illustrations made by recolor-ex.py from img/ex/ (originals untouched). home-*.webp: artwork from Zane's home mockup (hero text/chips painted out, drawn live instead). knewave.woff2: Knewave by Tyler Finck, SIL OFL 1.1 (OFL-knewave.txt), Latin subset.",
+  "_note": "Laychan's FG Falcon G6E theme (friends.json \"theme\": \"falcon\"). theme.css loads after styles.css on her copy only; body gets class theme-falcon; theme.js (after user.js) lays out her Today page (home v3). Assets are precached by her service worker. exImgDir = orange-highlight exercise illustrations made by recolor-ex.py from img/ex/ (originals untouched). home-*.webp: artwork from Zane's home mockup (hero text/chips painted out, drawn live instead). knewave.woff2: Knewave by Tyler Finck, SIL OFL 1.1 (OFL-knewave.txt), Latin subset. home-top.webp carries a black Ford oval (ford-oval-black.svg, recoloured from the public-domain Ford logo on Wikimedia Commons, File:Ford_logo_flat.svg; Ford is a trademark of Ford Motor Company) in place of the mockup's dumbbell. meals/*.webp: generated food photos for the Cheat meals sheet.",
   "css": "theme.css",
   "js": "theme.js",
   "assets": [
@@ -8,7 +8,16 @@
     "home-top.webp",
     "home-hero.webp",
     "home-built.webp",
-    "knewave.woff2"
+    "knewave.woff2",
+    "meals/1-chicken-rice.webp",
+    "meals/2-yoghurt.webp",
+    "meals/3-shake.webp",
+    "meals/4-boiled-eggs.webp",
+    "meals/5-fridge-chicken.webp",
+    "meals/6-eggs-beans.webp",
+    "meals/7-eggs-toast.webp",
+    "meals/8-beans-toast.webp",
+    "meals/9-eggs-beans-toast.webp"
   ],
   "exImgDir": "img/ex-orange/",
   "themeColor": "#0a0a0a"

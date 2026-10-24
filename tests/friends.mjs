@@ -123,6 +123,19 @@ try {
       const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }), page = await ctx.newPage();
       await page.goto(BASE + path); await unlock(page, pw); await page.waitForSelector("#bw");
       await page.fill("#bw", "90"); await page.selectOption("#days", "4"); await page.click("#ob-go"); await page.waitForSelector("#start");
+      if (friends.find((x) => x.slug === who)?.theme === "falcon") { // Laychan: the link is her Supplements box, not a floated X
+        const t = await page.evaluate(async () => {
+          const a = document.querySelector(".fx-tiles a#xplosiv.fx-tile.t-x"), img = a?.querySelector("img.fx-xi"); if (img) await img.decode();
+          const r = a?.getBoundingClientRect();
+          return a && { href: a.getAttribute("href"), target: a.target, rel: a.rel, label: a.getAttribute("aria-label"), img: img.src, w: img.naturalWidth, text: a.querySelector("strong").textContent + " / " + a.querySelector("span").textContent,
+            floated: document.querySelectorAll(".hero .xpw, .hero #xplosiv, .fx-below #xplosiv").length, n: document.querySelectorAll("#xplosiv").length, right: r.right, vw: innerWidth };
+        });
+        assert.ok(t, `${who}: Supplements box links to Xplosiv`);
+        assert.deepEqual({ href: t.href, target: t.target, rel: t.rel, label: t.label }, { href: "https://xplosiv.nz/clearance.html", target: "_blank", rel: "noopener", label: "Xplosiv clearance deals" }, `${who}: box link`);
+        assert.equal(t.img, BASE + "img/xplosiv-x.svg", `${who}: shared X image as the icon`); assert.ok(t.w > 0, "X icon loads");
+        assert.equal(t.text, "Supplements / Xplosiv clearance"); assert.equal(t.floated, 0, `${who}: no floated X in the exercise list`); assert.equal(t.n, 1);
+        assert.ok(t.right <= t.vw, "on screen"); await ctx.close(); continue;
+      }
       const x = await page.$eval(".hero a#xplosiv", (a) => ({ href: a.getAttribute("href"), target: a.target, rel: a.rel, label: a.getAttribute("aria-label"), img: a.querySelector("img").src }));
       assert.deepEqual({ ...x, img: undefined }, { href: "https://xplosiv.nz/clearance.html", target: "_blank", rel: "noopener", label: "Xplosiv clearance deals", img: undefined }, `${who}: link`);
       assert.equal(x.img, BASE + "img/xplosiv-x.svg", `${who}: shared image`);
@@ -142,28 +155,56 @@ try {
       await ctx.close();
     }
   }
-  ok(`Xplosiv X on Today in ${["zane", ...friends.map((f) => f.slug)].join("/")}: href https://xplosiv.nz/clearance.html, target _blank rel noopener, labelled, 70-90 px, no overlap with exercise text at 360 + 390 px`);
-  // Laychan's home v3 (themes/falcon/theme.js): live hero text + chips from the next session, real Start/Resume button,
-  // Workouts/Progress tiles + gear link, five-tab nav with icons; unthemed copies keep the stock Today page
+  ok(`Xplosiv on Today in ${["zane", ...friends.map((f) => f.slug)].join("/")}: href https://xplosiv.nz/clearance.html, target _blank rel noopener, labelled; floated X (70-90 px, no overlap with exercise text) in the stock copies, Supplements box (no floated X) in laychan, at 360 + 390 px`);
+  // Laychan's home v4 (themes/falcon/theme.js): live hero text + chips from the next session, real Start/Resume button,
+  // four boxes (Workouts/Progress/Cheat meals/Supplements) + gear link, five-tab nav with icons; unthemed copies keep the stock Today page
   for (const f of friends.filter((x) => x.theme === "falcon")) {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }), page = await ctx.newPage();
     await page.goto(BASE + f.slug + "/"); await unlock(page, PASSWORDS[f.slug]); await page.waitForSelector("#bw");
     await page.fill("#bw", "90"); await page.selectOption("#days", "4"); await page.selectOption("#equip", "full"); await page.click("#ob-go"); await page.waitForSelector("#start");
     const h = await page.evaluate(() => ({ h1: document.querySelector(".fx-hero h1").textContent, chips: [...document.querySelectorAll(".fx-chips li")].map((l) => l.textContent),
       start: document.querySelector("#start").textContent.trim(), startIn: !!document.querySelector(".fx-home > #start"), n: document.querySelectorAll("#start").length,
-      tiles: [...document.querySelectorAll(".fx-tile")].map((a) => a.getAttribute("href")), gear: document.querySelector(".fx-gear").getAttribute("href"),
+      tiles: [...document.querySelectorAll(".fx-tiles > .fx-tile")].map((a) => [a.tagName, a.getAttribute("href"), a.querySelector("strong").textContent, !!a.querySelector("b"), !!a.querySelector("i, img")]),
+      grid: (() => { const r = [...document.querySelectorAll(".fx-tiles > .fx-tile")].map((a) => a.getBoundingClientRect()); return [r[0].top === r[1].top, r[2].top === r[3].top, r[2].top > r[0].bottom, r[0].left === r[2].left, Math.abs(r[0].width - r[1].width) < 1]; })(),
+      builtAfter: document.querySelector(".fx-tiles").compareDocumentPosition(document.querySelector(".fx-built")) === Node.DOCUMENT_POSITION_FOLLOWING, gear: document.querySelector(".fx-gear").getAttribute("href"),
       art: [...document.querySelectorAll(".fx-art img, img.fx-art")].map((i) => i.complete && i.naturalWidth > 0), oldTop: getComputedStyle(document.querySelector(".top")).display,
       nav: [...document.querySelectorAll("#nav a")].map((a) => [a.textContent, getComputedStyle(a, "::before").maskImage !== "none" || getComputedStyle(a, "::before").webkitMaskImage !== "none"]),
       font: document.fonts.check("20px Knewave") }));
     assert.equal(h.h1, "Today: Upper A"); assert.deepEqual(h.chips, ["4 sets", "6–10 reps", "RIR 1–2", "rest 3 min"], "chips = first exercise (bench)");
     assert.equal(h.start, "Start workout"); assert.ok(h.startIn && h.n === 1, "one real #start in the home layout");
-    assert.deepEqual(h.tiles, ["#/workout", "#/progress"]); assert.equal(h.gear, "#/settings"); assert.deepEqual(h.art, [true, true, true], "artwork loads");
+    assert.deepEqual(h.tiles, [["A", "#/workout", "Workouts", true, true], ["A", "#/progress", "Progress", true, true], ["BUTTON", null, "Cheat meals", true, true], ["A", "https://xplosiv.nz/clearance.html", "Supplements", true, true]], "four boxes");
+    assert.deepEqual(h.grid, [true, true, true, true, true], "2x2 grid"); assert.ok(h.builtAfter, "Built Different banner below the grid"); assert.equal(h.gear, "#/settings"); assert.deepEqual(h.art, [true, true, true], "artwork loads");
     assert.equal(h.oldTop, "none", "artwork replaces the header on Today");
     assert.deepEqual(h.nav, [["Today", true], ["Workout", true], ["Progress", true], ["Why", true], ["Settings", true]]);
     await page.click(".fx-gear"); await page.waitForFunction(() => location.hash === "#/settings");
     await page.click('#nav a[href="#/today"]'); await page.click(".fx-tile.t-p"); await page.waitForFunction(() => location.hash === "#/progress");
     await page.click('#nav a[href="#/today"]'); await page.click(".fx-tile.t-w"); await page.waitForFunction(() => location.hash === "#/workout");
-    await page.click('#nav a[href="#/today"]'); await page.click("#start"); await page.waitForSelector(".exscreen");
+    // Cheat meals sheet: opens from the box, 9 meal cards with pictures, closes with the X, Escape, the backdrop and back
+    const mealsOpen = async () => { await page.click(".fx-tile.t-c"); await page.waitForSelector(".fx-sheet.open [role=dialog]"); };
+    const closed = () => page.waitForFunction(() => !document.querySelector(".fx-sheet") && !document.documentElement.classList.contains("fx-noscroll"));
+    await page.click('#nav a[href="#/today"]'); await mealsOpen();
+    const m = await page.evaluate(async () => {
+      const cards = [...document.querySelectorAll(".fx-meals > li.fx-meal")];
+      await Promise.all(cards.map((c) => { const i = c.querySelector("img"); i.loading = "eager"; return i.decode().catch(() => {}); }));
+      const L = document.querySelector(".fx-meals");
+      return { h: document.querySelector("#fx-meals-h").textContent, sub: document.querySelector(".fx-sheet header p").textContent, focus: document.activeElement.className,
+        cards: cards.map((c) => [c.querySelector("h3").textContent, c.querySelector(".pt strong").textContent, getComputedStyle(c.querySelector(".pt strong")).color, c.querySelector("img").naturalWidth > 0]),
+        need: cards.map((c) => c.querySelector(".need").textContent), tips: cards.filter((c) => c.querySelector(".tip")).length,
+        badge: [...document.querySelectorAll(".fx-badge")].map((b) => [b.textContent, b.closest("li").querySelector("h3").textContent]),
+        scrolls: L.scrollHeight > L.clientHeight && getComputedStyle(L).overflowY === "auto", hash: location.hash };
+    });
+    assert.equal(m.h, "Cheat meals"); assert.equal(m.sub, "Fast high-protein meals when there's no time to cook"); assert.equal(m.focus, "fx-x", "focus on the close X");
+    assert.deepEqual(m.cards.map((c) => c[0]), ["1. Chicken and microwave rice", "2. High-protein yoghurt", "3. Protein shake", "4. Pre-boiled eggs", "5. Chicken straight from the fridge", "6. Eggs and baked beans", "7. Eggs on toast", "8. Beans on toast", "9. Eggs and beans on toast"], "9 meals in order");
+    assert.deepEqual(m.cards.map((c) => c[1]), ["~30–45 g protein", "~25–40 g protein", "~40–55 g protein", "~25 g protein per 4 eggs", "~35–50 g protein", "40–45 g protein", "30–34 g protein", "18–23 g protein", "30–35 g protein"]);
+    assert.ok(m.cards.every((c) => c[2] === "rgb(255, 121, 0)" && c[3]), "protein in orange, every picture loads");
+    assert.equal(m.need[5], "4 eggs + 1 can baked beans."); assert.equal(m.tips, 6); assert.deepEqual(m.badge, [["Easiest way to hit 40 g", "6. Eggs and baked beans"]]);
+    assert.ok(m.scrolls, "list scrolls"); assert.equal(m.hash, "#/today");
+    await page.click(".fx-x"); await closed(); assert.equal(await page.evaluate(() => location.hash), "#/today");
+    await mealsOpen(); await page.keyboard.press("Escape"); await closed();
+    await mealsOpen(); await page.mouse.click(195, 10); await closed(); // backdrop above the sheet
+    await mealsOpen(); await page.goBack(); await closed(); assert.equal(await page.evaluate(() => location.hash), "#/today", "back gesture closes the sheet, stays on Today");
+    assert.ok(await page.$(".fx-home #start"), "Today still there");
+    await page.click("#start"); await page.waitForSelector(".exscreen");
     await page.click('#nav a[href="#/today"]'); await page.waitForSelector("#start");
     assert.equal((await page.textContent("#start")).trim(), "Resume workout"); assert.ok(await page.$(".fx-start.resume"));
     await ctx.close();
@@ -175,6 +216,6 @@ try {
     assert.ok(!(await page.$(".fx-home")) && (await page.$(".card.hero #start")), `${who}: stock Today page`);
     await ctx.close();
   }
-  ok("laychan home v3: 'Today: Upper A' + live chips (4 sets / 6–10 reps / RIR 1–2 / rest 3 min), Start -> Resume via the real #start, tiles -> #/workout #/progress, gear -> #/settings, 5 icon tabs; zane/ben keep the stock Today");
+  ok("laychan home v4: 'Today: Upper A' + live chips (4 sets / 6–10 reps / RIR 1–2 / rest 3 min), Start -> Resume via the real #start, 2x2 boxes (Workouts #/workout, Progress #/progress, Cheat meals sheet with 9 meals that closes via X / Escape / backdrop / back, Supplements -> Xplosiv), gear -> #/settings, 5 icon tabs; zane/ben keep the stock Today");
   console.log("ALL FRIEND TESTS PASSED");
 } finally { await browser.close(); server?.kill(); }
