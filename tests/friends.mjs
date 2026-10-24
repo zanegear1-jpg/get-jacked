@@ -176,6 +176,15 @@ try {
     assert.deepEqual(h.grid, [true, true, true, true, true], "2x2 grid"); assert.ok(h.builtAfter, "Built Different banner below the grid"); assert.equal(h.gear, "#/settings"); assert.deepEqual(h.art, [true, true, true], "artwork loads");
     assert.equal(h.oldTop, "none", "artwork replaces the header on Today");
     assert.deepEqual(h.nav, [["Today", true], ["Workout", true], ["Progress", true], ["Why", true], ["Settings", true]]);
+    // compact boxes: the whole Built Different banner sits above the bottom nav on the first screen; box subtitle and chevron don't overlap
+    for (const [w, ht] of [[390, 844], [360, 780]]) {
+      await page.setViewportSize({ width: w, height: ht }); await page.evaluate(async () => { scrollTo(0, 0); await document.fonts.ready; }); await page.waitForTimeout(150);
+      const fit = await page.evaluate(() => { const ov = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+        return { built: document.querySelector(".fx-built").getBoundingClientRect().bottom, nav: document.querySelector("#nav").getBoundingClientRect().top,
+          overlap: [...document.querySelectorAll(".fx-tile")].some((t) => { const c = t.querySelector("b").getBoundingClientRect(); return [...t.querySelectorAll("strong, span")].some((x) => ov(x.getBoundingClientRect(), c)); }) }; });
+      assert.ok(fit.built <= fit.nav, `banner fully above the nav at ${w}x${ht} (${fit.built} > ${fit.nav})`); assert.ok(!fit.overlap, `box text clear of the chevron at ${w}x${ht}`);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.click(".fx-gear"); await page.waitForFunction(() => location.hash === "#/settings");
     await page.click('#nav a[href="#/today"]'); await page.click(".fx-tile.t-p"); await page.waitForFunction(() => location.hash === "#/progress");
     await page.click('#nav a[href="#/today"]'); await page.click(".fx-tile.t-w"); await page.waitForFunction(() => location.hash === "#/workout");
@@ -216,6 +225,6 @@ try {
     assert.ok(!(await page.$(".fx-home")) && (await page.$(".card.hero #start")), `${who}: stock Today page`);
     await ctx.close();
   }
-  ok("laychan home v4: 'Today: Upper A' + live chips (4 sets / 6–10 reps / RIR 1–2 / rest 3 min), Start -> Resume via the real #start, 2x2 boxes (Workouts #/workout, Progress #/progress, Cheat meals sheet with 9 meals that closes via X / Escape / backdrop / back, Supplements -> Xplosiv), gear -> #/settings, 5 icon tabs; zane/ben keep the stock Today");
+  ok("laychan home v4: 'Today: Upper A' + live chips (4 sets / 6–10 reps / RIR 1–2 / rest 3 min), Start -> Resume via the real #start, banner above the nav at 390x844 + 360x780, 2x2 boxes (Workouts #/workout, Progress #/progress, Cheat meals sheet with 9 meals that closes via X / Escape / backdrop / back, Supplements -> Xplosiv), gear -> #/settings, 5 icon tabs; zane/ben keep the stock Today");
   console.log("ALL FRIEND TESTS PASSED");
 } finally { await browser.close(); server?.kill(); }
