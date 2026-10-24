@@ -53,3 +53,15 @@ progression, settings, tracker/chart/history, export/import, v1 migration, deloa
   `manifest.webmanifest`, `sw.js`, `icons/`. App code, CSS and exercise images are shared from the root via `../` and precached by each folder's worker.
 - After changing the app: `npm run build:friends` (tests fail if a folder is stale). New friend: add to `friends.json`, put artwork in
   `friends-src/<slug>-car.jpg`, run `python3 scripts/friend-icons.py <slug>` and `npm run build:friends`.
+
+## Zane's app look + the default for new copies (`themes/jacked`)
+
+- The stock pages live in `template/` (`index.html`, `sw.js`, `manifest.webmanifest`). Zane's root `index.html`, `sw.js`,
+  `manifest.webmanifest` and `user.js` are **generated** from `template/` + `friends.json` `"defaultTheme"` by `npm run build:friends`
+  (edit `template/`, never the generated root files; tests fail if they are stale). Friend folders are built from `template/` too.
+- `"defaultTheme": "jacked"`: Zane's app (no vehicle: recoloured Get Jacked logo, GET JACKED / BUILT TUFF banner, BULK workout tag,
+  orange exercise images, falcon home layout via `"base": "falcon"`). Every friend entry **without** `"theme"` gets it, so a new copy
+  starts as Zane's app; give it `"theme": "falcon"`/`"hilux"`/... for a car edition, or `"theme": "none"` for the stock look.
+- The root `user.js` only sets `theme` + `exImgDir`; Zane's password, storage keys (`massplan.v1`, `getjacked.unlocked`) and lock come
+  from the `config.js` defaults, unchanged. Icons are unchanged (manifest: only `theme_color`/`background_color` become `#0a0a0a`).
+  The root worker's cache name is `get-jacked-v<N>-jacked-<theme hash>`, so it changes whenever the theme files change.

@@ -15,14 +15,20 @@ if (!BASE) {
 const SHOTS = process.env.SHOTS; // folder to save lock-screen screenshots into
 const ok = (name) => console.log("PASS", name);
 const { friends } = JSON.parse(fs.readFileSync(ROOT + "friends.json", "utf8"));
+// effective theme: friends.json "defaultTheme" (= Zane's app, "jacked") for entries without "theme"; "none" = stock look
+const { themeOf, defaultTheme } = await import("../scripts/build-friends.mjs");
 const PASSWORDS = { ben: "ben", laychan: "laychan" };
 // falcon look = the falcon theme itself or a theme built on it (theme.json "base": "falcon", e.g. Ben's hilux)
 const themeJson = (n) => JSON.parse(fs.readFileSync(ROOT + `themes/${n}/theme.json`, "utf8"));
-const falconLook = (f) => !!f.theme && (f.theme === "falcon" || themeJson(f.theme).base === "falcon");
+const falconLook = (f) => { const t = f.slug === "zane" ? defaultTheme : themeOf(f); return !!t && (t === "falcon" || themeJson(t).base === "falcon"); };
+// every copy on the site: Zane's root app + the friends (Zane's root uses the default theme, keeps his own password + unprefixed storage)
+const ZANE = { slug: "zane", path: "", pw: "zane", prefix: "", theme: defaultTheme };
+const COPIES = [ZANE, ...friends.map((f) => ({ ...f, path: f.slug + "/", pw: PASSWORDS[f.slug], prefix: f.slug + ":", theme: themeOf(f) }))];
 // per-theme home art + workout-page pill tag
 const ART = {
   falcon: { dir: "themes/falcon/", top: "Get Jacked · G6E Falcon Edition", built: "Built different · G6E Falcon", pill: "G6E" },
   hilux: { dir: "themes/hilux/", top: "Get Jacked · Hilux Edition", built: "Built different · Toyota Hilux", pill: "Hilux" },
+  jacked: { dir: "themes/jacked/", top: "Get Jacked", built: "Get Jacked · Built tuff", pill: "BULK" }, // Zane's app + default for new copies: no vehicle
 }; // the test needs the real ones; the app only has the hashes
 const browser = await chromium.launch({ channel: "chromium" });
 
@@ -55,8 +61,8 @@ try {
     assert.equal(img.src.startsWith(BASE + (falconLook(f) ? "img/ex-orange/" : "img/ex/")), true, img.src); assert.equal(img.w, 512);
     // theme: only the themed friend gets the extra stylesheet; the others keep the plain look
     const sheets = await page.evaluate(() => [...document.styleSheets].map((x) => x.href));
-    assert.equal(sheets.some((h) => h?.includes("/themes/")), !!f.theme, `${f.slug} theme stylesheet`);
-    if (f.theme) assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector(".top img")).display), "none", "theme header icon");
+    assert.equal(sheets.some((h) => h?.includes("/themes/")), !!themeOf(f), `${f.slug} theme stylesheet`);
+    if (themeOf(f)) assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector(".top img")).display), "none", "theme header icon");
     ok(`${f.slug}: car icon on lock screen; wrong passwords rejected; '${PASSWORDS[f.slug]}' (any case) unlocks; storage only under '${f.slug}:'; shared images load`);
     // manifest: own identity, scope and icons
     const man = await page.evaluate(async () => { const l = document.querySelector('link[rel="manifest"]'); return { href: l.href, json: await (await fetch(l.href)).json() }; });
@@ -131,7 +137,7 @@ try {
       const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }), page = await ctx.newPage();
       await page.goto(BASE + path); await unlock(page, pw); await page.waitForSelector("#bw");
       await page.fill("#bw", "90"); await page.selectOption("#days", "4"); await page.click("#ob-go"); await page.waitForSelector("#start");
-      if (falconLook(friends.find((x) => x.slug === who) || {})) { // Laychan/Ben (falcon look): the link is the Supplements box, not a floated X
+      if (falconLook(COPIES.find((x) => x.slug === who))) { // Laychan/Ben (falcon look): the link is the Supplements box, not a floated X
         const t = await page.evaluate(async () => {
           const a = document.querySelector(".fx-tiles a#xplosiv.fx-tile.t-x"), img = a?.querySelector("img.fx-xi"); if (img) await img.decode();
           const r = a?.getBoundingClientRect();
@@ -163,12 +169,12 @@ try {
       await ctx.close();
     }
   }
-  ok(`Xplosiv on Today in ${["zane", ...friends.map((f) => f.slug)].join("/")}: href https://xplosiv.nz/clearance.html, target _blank rel noopener, labelled; floated X (70-90 px, no overlap with exercise text) in the stock copies, Supplements box (no floated X) in ${friends.filter(falconLook).map((f) => f.slug).join("/")}, at 360 + 390 px`);
+  ok(`Xplosiv on Today in ${["zane", ...friends.map((f) => f.slug)].join("/")}: href https://xplosiv.nz/clearance.html, target _blank rel noopener, labelled; floated X (70-90 px, no overlap with exercise text) in the stock copies (${COPIES.filter((c) => !falconLook(c)).map((c) => c.slug).join("/") || "none"}), Supplements box (no floated X) in ${COPIES.filter(falconLook).map((f) => f.slug).join("/")}, at 360 + 390 px`);
   // Laychan's home v4 (themes/falcon/theme.js): live hero text + chips from the next session, real Start/Resume button,
   // four boxes (Workouts/Progress/Cheat meals/Supplements) + gear link, five-tab nav with icons; unthemed copies keep the stock Today page
-  for (const f of friends.filter(falconLook)) {
+  for (const f of COPIES.filter(falconLook)) {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }), page = await ctx.newPage();
-    await page.goto(BASE + f.slug + "/"); await unlock(page, PASSWORDS[f.slug]); await page.waitForSelector("#bw");
+    await page.goto(BASE + f.path); await unlock(page, f.pw); await page.waitForSelector("#bw");
     await page.fill("#bw", "90"); await page.selectOption("#days", "4"); await page.selectOption("#equip", "full"); await page.click("#ob-go"); await page.waitForSelector("#start");
     const h = await page.evaluate(() => ({ h1: document.querySelector(".fx-hero h1").textContent, chips: [...document.querySelectorAll(".fx-chips li")].map((l) => l.textContent),
       start: document.querySelector("#start").textContent.trim(), startIn: !!document.querySelector(".fx-home > #start"), n: document.querySelectorAll("#start").length,
@@ -181,6 +187,10 @@ try {
       arts: [...document.querySelectorAll(".fx-top img, .fx-hero > img, img.fx-built")].map((i) => [i.getAttribute("src").replace(/^.*?(themes\/)/, "$1"), i.alt]),
       body: document.body.className }));
     const A = ART[f.theme];
+    if (f.slug === "zane") { // Zane's own keys and lock untouched by the new look
+      const keys = await page.evaluate(() => Object.keys(localStorage).sort());
+      assert.deepEqual(keys, ["getjacked.unlocked", "massplan.v1"], "zane: same storage keys as before");
+    }
     assert.deepEqual(h.arts, [[A.dir + "home-top.webp", A.top], [A.dir + "home-hero.webp", ""], [A.dir + "home-built.webp", A.built]], `${f.slug}: own home art + alt text`);
     assert.ok(h.body.split(" ").includes("theme-falcon"), `${f.slug}: full falcon styling (body.theme-falcon)`);
     assert.equal(h.h1, "Today: Upper A"); assert.deepEqual(h.chips, ["4 sets", "6–10 reps", "RIR 1–2", "rest 3 min"], "chips = first exercise (bench)");
@@ -233,13 +243,14 @@ try {
     assert.equal((await page.textContent("#start")).trim(), "Resume workout"); assert.ok(await page.$(".fx-start.resume"));
     await ctx.close();
   }
-  for (const [who, path, pw] of [["zane", "", "zane"], ...friends.filter((x) => !x.theme).map((x) => [x.slug, x.slug + "/", PASSWORDS[x.slug]])]) {
+  // copies with "theme": "none" (and Zane's root, if defaultTheme were "") keep the stock Today page
+  for (const { slug: who, path, pw } of COPIES.filter((c) => !c.theme)) {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }), page = await ctx.newPage();
     await page.goto(BASE + path); await unlock(page, pw); await page.waitForSelector("#bw");
     await page.fill("#bw", "90"); await page.selectOption("#days", "4"); await page.click("#ob-go"); await page.waitForSelector("#start");
     assert.ok(!(await page.$(".fx-home")) && (await page.$(".card.hero #start")), `${who}: stock Today page`);
     await ctx.close();
   }
-  ok(`${friends.filter(falconLook).map((f) => f.slug).join("/")} home v4 (own art + alt: G6E Falcon / Hilux, workout tag G6E / Hilux, orange exercise images): 'Today: Upper A' + live chips (4 sets / 6–10 reps / RIR 1–2 / rest 3 min), Start -> Resume via the real #start, banner above the nav at 390x844 + 360x780, 2x2 boxes (Workouts #/workout, Progress #/progress, Cheat meals sheet with 9 meals that closes via X / Escape / backdrop / back, Supplements -> Xplosiv), gear -> #/settings, 5 icon tabs; ${["zane", ...friends.filter((x) => !x.theme).map((x) => x.slug)].join("/")} keep the stock Today`);
+  ok(`${COPIES.filter(falconLook).map((f) => f.slug).join("/")} home v4 (own art + alt: Get Jacked / G6E Falcon / Hilux, workout tag BULK / G6E / Hilux, orange exercise images): 'Today: Upper A' + live chips (4 sets / 6–10 reps / RIR 1–2 / rest 3 min), Start -> Resume via the real #start, banner above the nav at 390x844 + 360x780, 2x2 boxes (Workouts #/workout, Progress #/progress, Cheat meals sheet with 9 meals that closes via X / Escape / backdrop / back, Supplements -> Xplosiv), gear -> #/settings, 5 icon tabs; zane keeps storage keys massplan.v1 + getjacked.unlocked; stock Today in: ${COPIES.filter((c) => !c.theme).map((c) => c.slug).join("/") || "none (no theme: none copies)"}`);
   console.log("ALL FRIEND TESTS PASSED");
 } finally { await browser.close(); server?.kill(); }

@@ -83,7 +83,7 @@ try {
 
     // PWA: manifest, installability, offline
     const man = await (await page.request.get(BASE + "manifest.webmanifest")).json();
-    assert.equal(man.display, "standalone"); assert.equal(man.theme_color, "#111827");
+    assert.equal(man.display, "standalone"); assert.equal(man.theme_color, "#0a0a0a"); // Zane's app now uses the jacked (orange/black) theme colour
     assert.ok(man.icons.some((i) => i.sizes === "512x512" && i.purpose === "maskable"));
     assert.ok(man.icons.some((i) => i.sizes === "192x192" && i.purpose === "any"));
     const cdp = await ctx.newCDPSession(page);

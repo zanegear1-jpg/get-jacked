@@ -165,7 +165,7 @@ test("exercise illustrations: one per exercise, bundled, small, cached by the se
   const root = new URL("..", import.meta.url).pathname;
   const fallbacks = Object.keys(LIBRARY).filter((id) => !EX_IMG[id]);
   assert.deepEqual(fallbacks, [], "every exercise (incl. all swap alternatives) has an illustration");
-  const sw = fs.readFileSync(root + "sw.js", "utf8");
+  const sw = fs.readFileSync(root + "template/sw.js", "utf8"); // stock worker (template/); the generated root one precaches img/ex-orange/
   const swImgs = JSON.parse(sw.match(/const IMAGES = (\[.*?\]);/)[1]);
   assert.deepEqual(swImgs.sort(), [...new Set(Object.values(EX_IMG).map(([p]) => "./" + p))].sort());
   for (const [p] of Object.values(EX_IMG)) {
@@ -216,13 +216,14 @@ test("image rendering is centralised in media.js (style swap = data + IMAGE_STYL
 test("friend folders (/ben/, /laychan/) are generated from the root app and up to date", async () => {
   const fs = await import("node:fs");
   const root = new URL("..", import.meta.url).pathname;
-  const { build, friendFiles } = await import("../scripts/build-friends.mjs");
+  const { build, friendFiles, rootFiles, themeOf, defaultTheme } = await import("../scripts/build-friends.mjs");
   assert.deepEqual(build({ check: true }), [], "run `npm run build:friends`");
   const { friends } = JSON.parse(fs.readFileSync(root + "friends.json", "utf8"));
   assert.deepEqual(friends.map((f) => f.slug), ["ben", "laychan"]);
   const { createHash } = await import("node:crypto");
   const sha = (s) => createHash("sha256").update(s).digest("hex");
-  for (const f of friends) {
+  for (const f0 of friends) {
+    const f = { ...f0, theme: themeOf(f0) }; // no "theme" -> defaultTheme (Zane's look); "none" -> stock
     assert.equal(f.passSha256, sha(f.slug), "password = slug, stored only as a hash");
     const files = friendFiles(f), user = files["user.js"];
     assert.match(user, new RegExp(`"storagePrefix": "${f.slug}:"`)); assert.match(user, new RegExp(f.passSha256)); assert.match(user, /"assetBase": "\.\.\/"/);
@@ -261,4 +262,29 @@ test("friend folders (/ben/, /laychan/) are generated from the root app and up t
   assert.match(fs.readFileSync(root + "sw.js", "utf8"), /"\.\/config\.js"/);
   assert.match(fs.readFileSync(root + "sw.js", "utf8"), /"\.\/img\/xplosiv-x\.svg"/, "Xplosiv X in the shared precache");
   assert.ok(fs.statSync(root + "img/xplosiv-x.svg").size > 100);
+});
+
+test("Zane's root app is generated from template/ with the default theme; password, storage and icons unchanged", async () => {
+  const fs = await import("node:fs");
+  const root = new URL("..", import.meta.url).pathname;
+  const { rootFiles, themeOf, defaultTheme } = await import("../scripts/build-friends.mjs");
+  assert.equal(defaultTheme, "jacked"); assert.equal(themeOf({}), "jacked", "new copies default to Zane's look");
+  assert.equal(themeOf({ theme: "none" }), "", "theme: none = stock"); assert.equal(themeOf({ theme: "falcon" }), "falcon");
+  const files = rootFiles(), rd = (f) => fs.readFileSync(root + f, "utf8");
+  for (const [f, s] of Object.entries(files)) assert.equal(rd(f), s, `${f} up to date (npm run build:friends)`);
+  const user = files["user.js"], cfg = JSON.parse(user.match(/window\.GJ_CONFIG = (\{.*\})/s)[1]);
+  assert.deepEqual(cfg, { theme: "jacked", exImgDir: "img/ex-orange/" }, "root user.js only sets the look");
+  assert.doesNotMatch(user, /passSha256|storagePrefix|assetBase/, "password + storage come from config.js defaults");
+  assert.match(files["index.html"], /<body class="theme-falcon theme-jacked">/);
+  assert.match(files["index.html"], /<script src="user\.js"><\/script>\s*<script src="themes\/falcon\/theme\.js"><\/script>\s*<script src="themes\/jacked\/theme\.js"><\/script>\s*<script type="module" src="app\.js">/);
+  assert.match(files["sw.js"], /const VERSION = "get-jacked-v\d+-jacked-[0-9a-f]{8}"/, "root cache version bumped with the theme hash");
+  assert.match(files["sw.js"], /"\.\/img\/ex-orange\/bench\.webp"/); assert.doesNotMatch(files["sw.js"], /"\.\/img\/ex\//);
+  assert.match(files["sw.js"], /"\.\/user\.js"/); assert.match(files["sw.js"], /"\.\/themes\/jacked\/home-hero\.webp"/);
+  // manifest: only the two colours differ from the template (same name, id, scope, icons -> home-screen icon unchanged)
+  const m = JSON.parse(files["manifest.webmanifest"]), t = JSON.parse(rd("template/manifest.webmanifest"));
+  assert.deepEqual({ ...m, theme_color: 0, background_color: 0 }, { ...t, theme_color: 0, background_color: 0 });
+  assert.equal(m.theme_color, "#0a0a0a");
+  assert.match(files["index.html"], /href="icons\/apple-touch-icon-180\.png"/);
+  const strip = (h) => h.replace(/<!--.*?-->\n?/gs, "").replace(/\s*<link rel="stylesheet" href="themes\/[^"]+">/g, "").replace(/\s*<script src="(user\.js|themes\/[^"]+)"><\/script>/g, "").replace(/<body class="[^"]*">/, "<body>").replace(/content="#0a0a0a"/, 'content="#111827"');
+  assert.equal(strip(files["index.html"]), strip(rd("template/index.html")), "root page = template + theme files only");
 });

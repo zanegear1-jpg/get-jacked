@@ -1,0 +1,12 @@
+{
+  "_note": "Get Jacked theme: Zane's own app (site root) and the default for every new friends.json entry that has no \"theme\" (friends.json \"defaultTheme\"). \"base\": \"falcon\" = the whole orange/black falcon look (themes/falcon css + js + assets, orange exercise images, body class theme-falcon), then this theme on top (body class theme-jacked); themes/falcon is not copied or edited. No vehicle anywhere. theme.js swaps the three home-page artworks and their alt text; theme.css swaps the header dumbbell for logo-mark.webp and makes the workout-page pill a neutral BULK. Artwork: Zane's Get Jacked logo (his attachment, 1254x1254), recoloured blue -> falcon orange (skin, silver GET and dumbbell metal kept), not redrawn; black square cut away. home-hero.webp: generated car-free orange burst + the logo. home-top.webp: falcon header with the Ford oval and edition line removed, small logo in their place. home-built.webp: falcon banner reading GET JACKED / BUILT TUFF.",
+  "base": "falcon",
+  "css": "theme.css",
+  "js": "theme.js",
+  "assets": [
+    "home-top.webp",
+    "home-hero.webp",
+    "home-built.webp",
+    "logo-mark.webp"
+  ]
+}
