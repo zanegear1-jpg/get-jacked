@@ -4,5 +4,7 @@ window.GJ_CONFIG = {
   "user": "ben",
   "storagePrefix": "ben:",
   "passSha256": "6700869c8ff7480e34a70a708b028700dbaa3a033b5652b903afe89f49a31456",
-  "assetBase": "../"
+  "assetBase": "../",
+  "theme": "hilux",
+  "exImgDir": "img/ex-orange/"
 };

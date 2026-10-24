@@ -1,0 +1,11 @@
+{
+  "_note": "Ben's Toyota Hilux theme (friends.json \"theme\": \"hilux\"). \"base\": \"falcon\" means Ben gets Laychan's whole falcon look first (themes/falcon css + js + assets, orange exercise images, body class theme-falcon), then this theme on top (body class theme-hilux); themes/falcon is not copied or edited. theme.js swaps the three home-page artworks and their alt text; theme.css changes the workout-page pill tag from G6E to Hilux. home-top.webp: falcon header with \"HILUX EDITION\" and a black Toyota badge (toyota-badge-black.svg, the emblem from the public-domain Toyota logo on Wikimedia Commons, File:Toyota_carlogo.svg; Toyota is a trademark of Toyota Motor Corporation) in place of the Ford oval. home-hero.webp: falcon burst with the G6E removed and Ben's Hilux art (his own drawing, background removed, not redrawn) placed on it. home-built.webp: falcon banner reading TOYOTA HILUX.",
+  "base": "falcon",
+  "css": "theme.css",
+  "js": "theme.js",
+  "assets": [
+    "home-top.webp",
+    "home-hero.webp",
+    "home-built.webp"
+  ]
+}

@@ -17,13 +17,22 @@ const ICONS = ["icon-192.png", "icon-512.png", "icon-maskable-192.png", "icon-ma
 // after styles.css, an optional classic script loaded after user.js (it may set globalThis.GJ_THEME hooks, e.g. a
 // Today-page layout), a body class, assets + an alternative exercise-image set precached by that friend's worker.
 // Only that friend's generated files change; the root app and other friends are untouched.
-export function loadTheme(name) {
+// A theme may name a "base" theme: the friend then gets the base theme's stylesheet, script, assets, body class,
+// exercise images and theme colour first, with this theme's own files layered on top (the base folder is reused, not copied).
+export function loadTheme(name, seen = []) {
   if (!name) return null;
-  if (!/^[a-z0-9-]+$/.test(name)) throw new Error(`bad theme name ${name}`);
+  if (!/^[a-z0-9-]+$/.test(name) || seen.includes(name)) throw new Error(`bad theme name ${name}`);
   const dir = `themes/${name}/`, t = JSON.parse(read(dir + "theme.json"));
-  const files = [t.css, ...(t.js ? [t.js] : []), ...(t.assets || [])].map((a) => dir + a);
-  for (const file of files) if (!fs.existsSync(path.join(ROOT, file))) throw new Error(`theme ${name}: missing ${file}`);
-  return { name, ...t, dir, files };
+  const own = [t.css, ...(t.js ? [t.js] : []), ...(t.assets || [])].map((a) => dir + a);
+  for (const file of own) if (!fs.existsSync(path.join(ROOT, file))) throw new Error(`theme ${name}: missing ${file}`);
+  const b = t.base ? loadTheme(t.base, [...seen, name]) : null;
+  return {
+    name, ...t, dir, files: [...(b ? b.files : []), ...own],
+    styles: [...(b ? b.styles : []), dir + t.css],
+    scripts: [...(b ? b.scripts : []), ...(t.js ? [dir + t.js] : [])],
+    classes: [...(b ? b.classes : []), `theme-${name}`],
+    exImgDir: t.exImgDir ?? b?.exImgDir, themeColor: t.themeColor ?? b?.themeColor,
+  };
 }
 // Short content hash of everything a theme ships, so editing the theme always bumps the friend's cache version.
 function themeHash(t, imgs) {
@@ -43,9 +52,9 @@ export function friendFiles(f) {
   swap('<link rel="icon" href="icons/icon-192.png" type="image/png">', '<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">\n  <link rel="icon" href="icons/favicon-48.png" sizes="48x48" type="image/png">\n  <link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">');
   const theme = loadTheme(f.theme);
   if (theme) {
-    swap('<link rel="stylesheet" href="../styles.css">', `<link rel="stylesheet" href="../styles.css">\n  <link rel="stylesheet" href="../${theme.files[0]}">`);
-    if (theme.js) swap('<script src="user.js"></script>', `<script src="user.js"></script>\n  <script src="../${theme.dir}${theme.js}"></script>`);
-    swap("<body>", `<body class="theme-${theme.name}">`);
+    swap('<link rel="stylesheet" href="../styles.css">', ['<link rel="stylesheet" href="../styles.css">', ...theme.styles.map((u) => `<link rel="stylesheet" href="../${u}">`)].join("\n  "));
+    if (theme.scripts.length) swap('<script src="user.js"></script>', ['<script src="user.js"></script>', ...theme.scripts.map((u) => `<script src="../${u}"></script>`)].join("\n  "));
+    swap("<body>", `<body class="${theme.classes.join(" ")}">`);
     if (theme.themeColor) swap('<meta name="theme-color" content="#111827">', `<meta name="theme-color" content="${theme.themeColor}">`);
   }
   out["index.html"] = html.replace("<!doctype html>", `<!doctype html>\n<!-- ${GEN} -->`);
