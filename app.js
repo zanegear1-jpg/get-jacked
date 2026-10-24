@@ -203,19 +203,34 @@ const XPLOSIV_URL = "https://xplosiv.nz/clearance.html";
 function today() {
   const s = session(), plan = planFor(S.nextSession);
   const totalSets = Object.values(plan).reduce((a, b) => a + b, 0);
-  view.innerHTML = `
+  const meta = `<div class="muted small">Next session · ${S.profile.days} days/week · ${esc(EQUIPMENT[S.profile.equipment]?.label)}</div>`;
+  const big = `<div class="big">${esc(s.name)} · ${CONFIG.theme ? `<span class="hs">${totalSets} hard sets</span>` : `${totalSets} hard sets`}</div>`;
+  const xp = `<span class="xpw"><a class="xp" id="xplosiv" href="${XPLOSIV_URL}" target="_blank" rel="noopener" aria-label="Xplosiv clearance deals"><img src="${CONFIG.assetBase}img/xplosiv-x.svg" alt="" width="101" height="76"></a></span>`;
+  const list = `<ul class="small exlist">${s.exercises.map((e) => `<li>${esc(e.name)} <span class="muted">${plan[e.id]}×${e.reps[0]}–${e.reps[1]}</span></li>`).join("")}</ul>`;
+  const startLabel = S.active ? "Resume workout" : "Start workout";
+  const ios = !isStandalone() && isIOS() ? `<p class="small muted">iPhone: Share → Add to Home Screen to install.</p>` : "";
+  // A themed friend copy (themes/<name>/theme.js) may lay out the Today page itself; it gets the same pieces and the
+  // same #start button wiring below. Unthemed copies never define GJ_THEME, so their markup is unchanged.
+  const themed = globalThis.GJ_THEME?.today;
+  const ex0 = s.exercises[0];
+  view.innerHTML = themed ? themed({
+    esc, name: s.name, totalSets, startLabel, active: !!S.active,
+    first: ex0 && { sets: plan[ex0.id], reps: ex0.reps, rir: inDeload() ? "3–4" : "1–2", restMin: Math.round(restSeconds(ex0) / 30) / 2 },
+    deload: deloadCard(), session: `<div class="card hero">${meta}${big}${xp}${list}</div>`,
+    week: weekSummaryLine(), nutrition: nutritionCard(), ios,
+  }) : `
   <h1>Today: ${esc(s.name)}</h1>
   ${deloadCard()}
   <div class="card hero">
-    <div class="muted small">Next session · ${S.profile.days} days/week · ${esc(EQUIPMENT[S.profile.equipment]?.label)}</div>
-    <div class="big">${esc(s.name)} · ${CONFIG.theme ? `<span class="hs">${totalSets} hard sets</span>` : `${totalSets} hard sets`}</div>
-    <span class="xpw"><a class="xp" id="xplosiv" href="${XPLOSIV_URL}" target="_blank" rel="noopener" aria-label="Xplosiv clearance deals"><img src="${CONFIG.assetBase}img/xplosiv-x.svg" alt="" width="101" height="76"></a></span>
-    <ul class="small exlist">${s.exercises.map((e) => `<li>${esc(e.name)} <span class="muted">${plan[e.id]}×${e.reps[0]}–${e.reps[1]}</span></li>`).join("")}</ul>
-    <button class="primary" id="start" style="margin-top:10px">${S.active ? "Resume workout" : "Start workout"}</button>
+    ${meta}
+    ${big}
+    ${xp}
+    ${list}
+    <button class="primary" id="start" style="margin-top:10px">${startLabel}</button>
   </div>
   ${weekSummaryLine()}
   ${nutritionCard()}
-  ${!isStandalone() && isIOS() ? `<p class="small muted">iPhone: Share → Add to Home Screen to install.</p>` : ""}`;
+  ${ios}`;
   $("#start").onclick = () => { if (!S.active) startActive(); go("workout"); };
   wireDeload();
 }

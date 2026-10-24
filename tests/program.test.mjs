@@ -241,11 +241,12 @@ test("friend folders (/ben/, /laychan/) are generated from the root app and up t
       assert.match(files["index.html"], new RegExp(`<link rel="stylesheet" href="\\.\\./styles\\.css">\\s*<link rel="stylesheet" href="\\.\\./themes/${f.theme}/${t.css}">`));
       assert.match(files["index.html"], new RegExp(`<body class="theme-${f.theme}">`));
       assert.match(user, new RegExp(`"theme": "${f.theme}"`)); assert.match(user, new RegExp(`"exImgDir": "${t.exImgDir}"`));
-      for (const a of [t.css, ...t.assets]) assert.ok(files["sw.js"].includes(`"../themes/${f.theme}/${a}"`), a);
+      if (t.js) assert.match(files["index.html"], new RegExp(`<script src="user\\.js"></script>\\s*<script src="\\.\\./themes/${f.theme}/${t.js}"></script>\\s*<script type="module" src="\\.\\./app\\.js">`), "theme script after user.js, before the app");
+      for (const a of [t.css, ...(t.js ? [t.js] : []), ...t.assets]) assert.ok(files["sw.js"].includes(`"../themes/${f.theme}/${a}"`), a);
       assert.doesNotMatch(files["sw.js"], /"\.\.\/img\/ex\//, "themed friend precaches only its own image set");
       for (const id of Object.keys(LIBRARY)) { assert.ok(files["sw.js"].includes(`"../${t.exImgDir}${id}.webp"`), id); assert.ok(fs.statSync(`${root}${t.exImgDir}${id}.webp`).size > 1000, id); }
     }
-    assert.match(files["index.html"], /<script src="user\.js"><\/script>\s*<script type="module" src="\.\.\/app\.js">/);
+    if (!f.theme) assert.match(files["index.html"], /<script src="user\.js"><\/script>\s*<script type="module" src="\.\.\/app\.js">/);
     for (const i of ["icon-192.png", "icon-512.png", "icon-maskable-192.png", "icon-maskable-512.png", "apple-touch-icon-180.png", "favicon-32.png"]) assert.ok(fs.statSync(`${root}${f.slug}/icons/${i}`).size > 200, i);
   }
   // Zane's root app keeps its own password and original storage keys

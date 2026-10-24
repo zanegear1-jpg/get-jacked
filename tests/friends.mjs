@@ -143,5 +143,38 @@ try {
     }
   }
   ok(`Xplosiv X on Today in ${["zane", ...friends.map((f) => f.slug)].join("/")}: href https://xplosiv.nz/clearance.html, target _blank rel noopener, labelled, 70-90 px, no overlap with exercise text at 360 + 390 px`);
+  // Laychan's home v3 (themes/falcon/theme.js): live hero text + chips from the next session, real Start/Resume button,
+  // Workouts/Progress tiles + gear link, five-tab nav with icons; unthemed copies keep the stock Today page
+  for (const f of friends.filter((x) => x.theme === "falcon")) {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }), page = await ctx.newPage();
+    await page.goto(BASE + f.slug + "/"); await unlock(page, PASSWORDS[f.slug]); await page.waitForSelector("#bw");
+    await page.fill("#bw", "90"); await page.selectOption("#days", "4"); await page.selectOption("#equip", "full"); await page.click("#ob-go"); await page.waitForSelector("#start");
+    const h = await page.evaluate(() => ({ h1: document.querySelector(".fx-hero h1").textContent, chips: [...document.querySelectorAll(".fx-chips li")].map((l) => l.textContent),
+      start: document.querySelector("#start").textContent.trim(), startIn: !!document.querySelector(".fx-home > #start"), n: document.querySelectorAll("#start").length,
+      tiles: [...document.querySelectorAll(".fx-tile")].map((a) => a.getAttribute("href")), gear: document.querySelector(".fx-gear").getAttribute("href"),
+      art: [...document.querySelectorAll(".fx-art img, img.fx-art")].map((i) => i.complete && i.naturalWidth > 0), oldTop: getComputedStyle(document.querySelector(".top")).display,
+      nav: [...document.querySelectorAll("#nav a")].map((a) => [a.textContent, getComputedStyle(a, "::before").maskImage !== "none" || getComputedStyle(a, "::before").webkitMaskImage !== "none"]),
+      font: document.fonts.check("20px Knewave") }));
+    assert.equal(h.h1, "Today: Upper A"); assert.deepEqual(h.chips, ["4 sets", "6–10 reps", "RIR 1–2", "rest 3 min"], "chips = first exercise (bench)");
+    assert.equal(h.start, "Start workout"); assert.ok(h.startIn && h.n === 1, "one real #start in the home layout");
+    assert.deepEqual(h.tiles, ["#/workout", "#/progress"]); assert.equal(h.gear, "#/settings"); assert.deepEqual(h.art, [true, true, true], "artwork loads");
+    assert.equal(h.oldTop, "none", "artwork replaces the header on Today");
+    assert.deepEqual(h.nav, [["Today", true], ["Workout", true], ["Progress", true], ["Why", true], ["Settings", true]]);
+    await page.click(".fx-gear"); await page.waitForFunction(() => location.hash === "#/settings");
+    await page.click('#nav a[href="#/today"]'); await page.click(".fx-tile.t-p"); await page.waitForFunction(() => location.hash === "#/progress");
+    await page.click('#nav a[href="#/today"]'); await page.click(".fx-tile.t-w"); await page.waitForFunction(() => location.hash === "#/workout");
+    await page.click('#nav a[href="#/today"]'); await page.click("#start"); await page.waitForSelector(".exscreen");
+    await page.click('#nav a[href="#/today"]'); await page.waitForSelector("#start");
+    assert.equal((await page.textContent("#start")).trim(), "Resume workout"); assert.ok(await page.$(".fx-start.resume"));
+    await ctx.close();
+  }
+  for (const [who, path, pw] of [["zane", "", "zane"], ...friends.filter((x) => !x.theme).map((x) => [x.slug, x.slug + "/", PASSWORDS[x.slug]])]) {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }), page = await ctx.newPage();
+    await page.goto(BASE + path); await unlock(page, pw); await page.waitForSelector("#bw");
+    await page.fill("#bw", "90"); await page.selectOption("#days", "4"); await page.click("#ob-go"); await page.waitForSelector("#start");
+    assert.ok(!(await page.$(".fx-home")) && (await page.$(".card.hero #start")), `${who}: stock Today page`);
+    await ctx.close();
+  }
+  ok("laychan home v3: 'Today: Upper A' + live chips (4 sets / 6–10 reps / RIR 1–2 / rest 3 min), Start -> Resume via the real #start, tiles -> #/workout #/progress, gear -> #/settings, 5 icon tabs; zane/ben keep the stock Today");
   console.log("ALL FRIEND TESTS PASSED");
 } finally { await browser.close(); server?.kill(); }

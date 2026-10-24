@@ -1,7 +1,15 @@
 {
-  "_note": "Laychan's FG Falcon G6E theme (friends.json \"theme\": \"falcon\"). theme.css loads after styles.css on her copy only; body gets class theme-falcon. Assets are precached by her service worker. exImgDir = orange-highlight exercise illustrations made by recolor-ex.py from img/ex/ (originals untouched). Car art: friends/laychan-car.png (plate GETJKD) cut out; backgrounds generated.",
+  "_note": "Laychan's FG Falcon G6E theme (friends.json \"theme\": \"falcon\"). theme.css loads after styles.css on her copy only; body gets class theme-falcon; theme.js (after user.js) lays out her Today page (home v3). Assets are precached by her service worker. exImgDir = orange-highlight exercise illustrations made by recolor-ex.py from img/ex/ (originals untouched). home-*.webp: artwork from Zane's home mockup (hero text/chips painted out, drawn live instead). knewave.woff2: Knewave by Tyler Finck, SIL OFL 1.1 (OFL-knewave.txt), Latin subset.",
   "css": "theme.css",
-  "assets": ["bg-today.webp", "bg-streaks.webp", "car.webp", "panel.webp"],
+  "js": "theme.js",
+  "assets": [
+    "bg-streaks.webp",
+    "panel.webp",
+    "home-top.webp",
+    "home-hero.webp",
+    "home-built.webp",
+    "knewave.woff2"
+  ],
   "exImgDir": "img/ex-orange/",
   "themeColor": "#0a0a0a"
 }
