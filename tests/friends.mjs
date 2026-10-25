@@ -260,17 +260,20 @@ try {
           strip: wk && [...wk.querySelectorAll("li")].map((li) => (li.classList.contains("wk-on") ? "T" : "r") + (li.classList.contains("wk-now") ? "*" : "")).join(" "),
           inHero: !!wk && (() => { const b = wk.getBoundingClientRect(); return b.top >= hero.top && b.bottom <= hero.bottom && b.left >= hero.left && b.right <= hero.right; })(),
           clearTxt: (() => { const b = wk.getBoundingClientRect(); return [...document.querySelectorAll(".fx-hero h1, #rest-line, #rest-next")].every((x) => { const t = x.getBoundingClientRect(); return t.bottom <= b.top || t.top >= b.bottom || t.right <= b.left || t.left >= b.right; }); })(),
+          order: (() => { const R = (q) => document.querySelector(q).getBoundingClientRect(), t = R(".fx-hero h1"), l = R("#rest-line"), w = R("#week-strip"), n = R("#rest-next");
+            return [t.bottom <= l.top, l.bottom <= w.top, w.bottom <= n.top, n.bottom <= hero.bottom, n.right <= hero.left + hero.width * 0.64, Math.abs(n.left - w.left) < 1]; })(),
           built: document.querySelector(".fx-built").getBoundingClientRect().bottom, nav: document.querySelector("#nav").getBoundingClientRect().top }; });
       assert.equal(r.h1, "Today: Rest day", `${f.slug}`); assert.equal(r.line, "Recover and eat big: hit your protein and calories.");
       assert.equal(r.next, "Next: Upper A on Thursday"); assert.equal(r.start, "Train anyway: Upper A"); assert.ok(!r.chips && r.rest, "rest layout replaces the chips");
       assert.equal(r.strip, "T T r* T T r r"); assert.ok(r.inHero, `${f.slug}: strip inside the hero at ${w}`); assert.ok(r.clearTxt, `${f.slug}: strip clear of the hero text at ${w}`);
+      assert.deepEqual(r.order, [true, true, true, true, true, true], `${f.slug}: title, recovery line, week strip, then the Next pill under it (left-aligned, clear of the art) at ${w}`);
       assert.ok(r.built <= r.nav, `${f.slug}: banner above the nav on a rest day at ${w}x${ht} (${r.built} > ${r.nav})`);
     }
     await page.click("#start"); await page.waitForSelector(".exscreen"); await page.click('#nav a[href="#/today"]'); await page.waitForSelector("#start");
     assert.equal((await page.textContent("#start")).trim(), "Resume workout"); assert.equal(await page.textContent(".fx-hero h1"), "Today: Upper A");
     await ctx.close();
   }
-  ok(`${COPIES.filter(falconLook).map((f) => f.slug).join("/")} rest day (Wed): 'Today: Rest day', recovery line, 'Next: Upper A on Thursday', 'Train anyway: Upper A' starts it, themed M–S strip inside the hero (clear of the text), banner above the nav at 390x844 + 360x780`);
+  ok(`${COPIES.filter(falconLook).map((f) => f.slug).join("/")} rest day (Wed): 'Today: Rest day', recovery line, 'Next: Upper A on Thursday', 'Train anyway: Upper A' starts it, themed M–S strip inside the hero (order: title, recovery line, strip, Next pill under the strip; clear of the text and art), banner above the nav at 390x844 + 360x780`);
   // copies with "theme": "none" (and Zane's root, if defaultTheme were "") keep the stock Today page
   for (const { slug: who, path, pw } of COPIES.filter((c) => !c.theme)) {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }), page = await ctx.newPage();
