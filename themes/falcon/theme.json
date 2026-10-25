@@ -20,5 +20,6 @@
     "meals/9-eggs-beans-toast.webp"
   ],
   "exImgDir": "img/ex-orange/",
-  "themeColor": "#0a0a0a"
+  "themeColor": "#0a0a0a",
+  "restStrip": "right"
 }

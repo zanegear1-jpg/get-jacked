@@ -162,9 +162,11 @@ body.theme-falcon:has(.exscreen) .top .pill::after{content:"G6E";font-size:13px}
 .theme-falcon .td-day.on{background:#2a1a0e;border:2px solid var(--accent);color:#ff9a3c}
 .theme-falcon #td-reset{background:#0d0d0d;border:1px solid #5c5c5c}
 .theme-falcon #td-reset:disabled{opacity:.5}
-/* rest day: week strip in the hero's bottom-right corner (under the car / badge), Next pill just below the hero, left-aligned
+/* rest day: week strip in the hero's bottom-left corner (default; clear of the Hilux wheels and the Get Jacked badge) or
+   bottom-right under the car for themes with "restStrip": "right" (falcon: body.rest-strip-right). Next pill just below the hero, left-aligned
    with the Train anyway button; the gap above the button shrinks so the bottom banner still fits on the first screen */
-.fx-restday .fx-hero .wk{left:auto;right:3.2cqw;bottom:1.6cqw;width:50cqw;gap:1cqw}
+.fx-restday .fx-hero .wk{left:4.4cqw;right:auto;bottom:1.6cqw;width:50cqw;gap:1cqw}
+.rest-strip-right .fx-restday .fx-hero .wk{left:auto;right:3.2cqw}
 .fx-restday .fx-hero .wk li{height:5.4cqw;font-size:2.8cqw}
 .fx-restday>.fx-rd-next{margin:10px 22px 0;max-width:calc(100% - 44px)}
 .theme-falcon .fx-restday>.fx-start{margin-top:10px}

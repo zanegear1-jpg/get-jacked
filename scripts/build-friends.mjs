@@ -27,6 +27,7 @@ const ICONS = ["icon-192.png", "icon-512.png", "icon-maskable-192.png", "icon-ma
 // Only that friend's generated files change; other friends are untouched.
 // A theme may name a "base" theme: the friend then gets the base theme's stylesheet, script, assets, body class,
 // exercise images and theme colour first, with this theme's own files layered on top (the base folder is reused, not copied).
+// "restStrip": "right" puts the rest-day week strip in the hero's bottom-right (body class rest-strip-right); default left.
 export function loadTheme(name, seen = []) {
   if (!name) return null;
   if (!/^[a-z0-9-]+$/.test(name) || seen.includes(name)) throw new Error(`bad theme name ${name}`);
@@ -38,7 +39,10 @@ export function loadTheme(name, seen = []) {
     name, ...t, dir, files: [...(b ? b.files : []), ...own],
     styles: [...(b ? b.styles : []), dir + t.css],
     scripts: [...(b ? b.scripts : []), ...(t.js ? [dir + t.js] : [])],
-    classes: [...(b ? b.classes : []), `theme-${name}`],
+    // rest-day week strip side: a theme's own setting, never inherited from its base, so only themes that opt in
+    // ("restStrip": "right", e.g. falcon) get it on the right; everything else (jacked, hilux, new themes) is left.
+    restStrip: t.restStrip === "right" ? "right" : "left",
+    classes: [...(b ? b.classes : []).filter((c) => c !== "rest-strip-right"), `theme-${name}`, ...(t.restStrip === "right" ? ["rest-strip-right"] : [])],
     exImgDir: t.exImgDir ?? b?.exImgDir, themeColor: t.themeColor ?? b?.themeColor,
   };
 }

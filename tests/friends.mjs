@@ -260,16 +260,21 @@ try {
           strip: wk && [...wk.querySelectorAll("li")].map((li) => (li.classList.contains("wk-on") ? "T" : "r") + (li.classList.contains("wk-now") ? "*" : "")).join(" "),
           inHero: !!wk && (() => { const b = wk.getBoundingClientRect(); return b.top >= hero.top && b.bottom <= hero.bottom && b.left >= hero.left && b.right <= hero.right; })(),
           clearTxt: (() => { const b = wk.getBoundingClientRect(); return [...document.querySelectorAll(".fx-hero h1, #rest-line, #rest-next")].every((x) => { const t = x.getBoundingClientRect(); return t.bottom <= b.top || t.top >= b.bottom || t.right <= b.left || t.left >= b.right; }); })(),
+          side: document.body.classList.contains("rest-strip-right") ? "right" : "left",
           order: (() => { const R = (q) => document.querySelector(q).getBoundingClientRect(), t = R(".fx-hero h1"), l = R("#rest-line"), w = R("#week-strip"), n = R("#rest-next");
             const st = R("#start"), wl = R("#rest-line");
             return [t.bottom <= l.top, // title, then the recovery line (top-left, unchanged)
-              hero.right - w.right < hero.width * 0.05 && w.left > hero.left + hero.width * 0.4 && hero.bottom - w.bottom < hero.width * 0.03 && w.top > wl.bottom, // strip: bottom-right corner of the hero
+              (document.body.classList.contains("rest-strip-right")
+                ? hero.right - w.right < hero.width * 0.05 && w.left > hero.left + hero.width * 0.4 // bottom-right (falcon)
+                : w.left - hero.left < hero.width * 0.05 && w.right < hero.left + hero.width * 0.56) // bottom-left (default), clear of the badge / Hilux wheels
+                && hero.bottom - w.bottom < hero.width * 0.03 && w.top > wl.bottom,
               n.top >= hero.bottom && n.bottom <= st.top && Math.abs(n.left - st.left) < 1, // Next pill: below the hero, above Train anyway, left-aligned with it
               !document.querySelector(".fx-hero #rest-next")]; })(),
           built: document.querySelector(".fx-built").getBoundingClientRect().bottom, nav: document.querySelector("#nav").getBoundingClientRect().top }; });
       assert.equal(r.h1, "Today: Rest day", `${f.slug}`); assert.equal(r.line, "Recover and eat big: hit your protein and calories.");
       assert.equal(r.next, "Next: Upper A on Thursday"); assert.equal(r.start, "Train anyway: Upper A"); assert.ok(!r.chips && r.rest, "rest layout replaces the chips");
       assert.equal(r.strip, "T T r* T T r r"); assert.ok(r.inHero, `${f.slug}: strip inside the hero at ${w}`); assert.ok(r.clearTxt, `${f.slug}: strip clear of the hero text at ${w}`);
+      assert.equal(r.side, f.slug === "laychan" ? "right" : "left", `${f.slug}: rest-day strip side (only falcon opts into the right)`);
       assert.deepEqual(r.order, [true, true, true, true], `${f.slug}: title + recovery line top-left, week strip bottom-right in the hero, Next pill below the hero above Train anyway (left-aligned) at ${w}`);
       assert.ok(r.built <= r.nav, `${f.slug}: banner above the nav on a rest day at ${w}x${ht} (${r.built} > ${r.nav})`);
     }
@@ -277,7 +282,7 @@ try {
     assert.equal((await page.textContent("#start")).trim(), "Resume workout"); assert.equal(await page.textContent(".fx-hero h1"), "Today: Upper A");
     await ctx.close();
   }
-  ok(`${COPIES.filter(falconLook).map((f) => f.slug).join("/")} rest day (Wed): 'Today: Rest day', recovery line, 'Next: Upper A on Thursday', 'Train anyway: Upper A' starts it, themed M–S strip in the hero's bottom-right corner, Next pill below the hero above Train anyway (left-aligned), banner above the nav at 390x844 + 360x780`);
+  ok(`${COPIES.filter(falconLook).map((f) => f.slug).join("/")} rest day (Wed): 'Today: Rest day', recovery line, 'Next: Upper A on Thursday', 'Train anyway: Upper A' starts it, themed M–S strip in the hero's bottom corner (laychan/falcon right; zane, ben and new copies left), Next pill below the hero above Train anyway (left-aligned), banner above the nav at 390x844 + 360x780`);
   // copies with "theme": "none" (and Zane's root, if defaultTheme were "") keep the stock Today page
   for (const { slug: who, path, pw } of COPIES.filter((c) => !c.theme)) {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }), page = await ctx.newPage();

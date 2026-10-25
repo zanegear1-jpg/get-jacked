@@ -94,3 +94,15 @@ test("migration: a saved profile with no schedule gets the recommended one, noth
   // migrating twice is stable (backup -> restore -> reload)
   assert.deepEqual(migrate(JSON.parse(JSON.stringify(S))), S);
 });
+
+test("rest-day week strip side is a theme setting: falcon opts into the right, everything else (and new themes) is left", async () => {
+  const { loadTheme, friendFiles, rootFiles } = await import("../scripts/build-friends.mjs");
+  assert.equal(loadTheme("falcon").restStrip, "right"); assert.ok(loadTheme("falcon").classes.includes("rest-strip-right"));
+  for (const t of ["jacked", "hilux"]) {
+    assert.equal(loadTheme(t).restStrip, "left", `${t} doesn't inherit falcon's right side`);
+    assert.ok(!loadTheme(t).classes.includes("rest-strip-right") && loadTheme(t).classes.includes("theme-falcon"));
+  }
+  const fs = await import("node:fs");
+  assert.match(fs.readFileSync(new URL("../laychan/index.html", import.meta.url), "utf8"), /<body class="[^"]*\brest-strip-right\b/);
+  for (const f of ["../index.html", "../ben/index.html"]) assert.doesNotMatch(fs.readFileSync(new URL(f, import.meta.url), "utf8"), /rest-strip-right/);
+});

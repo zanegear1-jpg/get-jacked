@@ -243,7 +243,7 @@ test("friend folders (/ben/, /laychan/) are generated from the root app and up t
       for (let n = f.theme; n; n = tj(n).base) { assert.ok(!chain.includes(n), "no base loop"); chain.unshift(n); }
       const ts = chain.map((n) => ({ n, ...tj(n) })), t = { ...ts[0], ...ts.at(-1), exImgDir: ts.map((x) => x.exImgDir).filter(Boolean).at(-1) };
       assert.match(files["index.html"], new RegExp(`<link rel="stylesheet" href="\\.\\./styles\\.css">${ts.map((x) => `\\s*<link rel="stylesheet" href="\\.\\./themes/${x.n}/${x.css}">`).join("")}\\s*</head>`));
-      assert.match(files["index.html"], new RegExp(`<body class="${chain.map((n) => `theme-${n}`).join(" ")}">`));
+      assert.match(files["index.html"], new RegExp(`<body class="${[...chain.map((n) => `theme-${n}`), ...(tj(chain.at(-1)).restStrip === "right" ? ["rest-strip-right"] : [])].join(" ")}">`));
       assert.match(user, new RegExp(`"theme": "${f.theme}"`)); assert.match(user, new RegExp(`"exImgDir": "${t.exImgDir}"`));
       const js = ts.filter((x) => x.js);
       if (js.length) assert.match(files["index.html"], new RegExp(`<script src="user\\.js"></script>${js.map((x) => `\\s*<script src="\\.\\./themes/${x.n}/${x.js}"></script>`).join("")}\\s*<script type="module" src="\\.\\./app\\.js">`), "theme script(s) after user.js, before the app");
