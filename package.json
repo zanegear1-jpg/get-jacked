@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/calc.test.mjs tests/program.test.mjs && node tests/e2e.mjs && node tests/friends.mjs",
+    "test": "node --test tests/calc.test.mjs tests/program.test.mjs tests/schedule.test.mjs && node tests/e2e.mjs && node tests/friends.mjs",
     "build:friends": "node scripts/build-friends.mjs",
     "serve": "python3 -m http.server 8088"
   },

@@ -64,11 +64,17 @@
       const chips = f ? `<ul class="fx-chips" aria-label="First exercise">
           <li class="c-sets">${f.sets} sets</li><li class="c-reps">${f.reps[0]}–${f.reps[1]} reps</li>
           <li class="c-rir">RIR ${f.rir}</li><li class="c-rest">rest ${f.restMin} min</li></ul>` : "";
+      // Rest day (app.js d.rest): same hero, "Today: Rest day", the recovery line and the next session in place of the chips.
+      const r = d.rest;
+      const heroTxt = r
+        ? `<h1 class="fx-title"><span>Today:</span> <em>Rest day</em></h1>
+          <p class="fx-rd-line" id="rest-line">${r.line}</p><p class="fx-rd-next" id="rest-next">Next: <b>${e(r.next)}</b> ${r.when}</p>`
+        : `<h1 class="fx-title"><span>Today:</span> <em>${e(d.name)}</em></h1>${chips}`;
       return `
-  <div class="fx-home">
+  <div class="fx-home${r ? " fx-restday" : ""}">
     <div class="fx-art fx-top"><img src="${B}home-top.webp" width="1024" height="150" alt="Get Jacked · G6E Falcon Edition"><a class="fx-gear" href="#/settings" aria-label="Settings"></a></div>
-    <section class="fx-art fx-hero" aria-label="Next session"><img src="${B}home-hero.webp" width="1024" height="585" alt="">
-      <div class="fx-hero-txt"><h1 class="fx-title"><span>Today:</span> <em>${e(d.name)}</em></h1>${chips}</div>
+    <section class="fx-art fx-hero" aria-label="${r ? "Rest day" : "Next session"}"><img src="${B}home-hero.webp" width="1024" height="585" alt="">
+      <div class="fx-hero-txt">${heroTxt}</div>${d.strip || ""}
     </section>
     <button class="fx-start${d.active ? " resume" : ""}" id="start"><i aria-hidden="true"></i><span>${d.startLabel}</span><b aria-hidden="true"></b></button>
     <div class="fx-tiles">

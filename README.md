@@ -36,12 +36,21 @@ and only work for the home-screen app.
   GO HEAVIER badge, starting-weight helper, calibration-week tip), Summary (post-workout macros, new
   bests, volume changes), Progress (weekly sets vs target, e1RM chart, history), Why this works,
   Settings (days, equipment, experience, calories, weigh-ins, JSON export/import).
+- Training days and rest days (`schedule.js`, shared by every copy): recommended days per split
+  (3: Mon/Wed/Fri, 4: Mon/Tue/Thu/Fri, 5: Mon/Tue/Thu/Fri/Sat, 6: Mon–Sat), a 7-toggle **Training days**
+  row in Settings (count must match the split, Reset to recommended, a gentle back-to-back warning from
+  the program's real muscle overlap, abs ignored). On a rest day Today says **Rest day**, shows
+  *Next: <session> on <weekday>* and a **Train anyway** button; an M–S week strip sits in the hero.
+  The rotation is unchanged: a missed day just moves the next session to the next training day.
+  Stored as `profile.schedule` (Mon = 0); profiles without one get the recommended days on load.
 
 ## Tests
-`npm install && npm test`: unit tests (`tests/calc.test.mjs`, `tests/program.test.mjs`) and a
+`npm install && npm test`: unit tests (`tests/calc.test.mjs`, `tests/program.test.mjs`, `tests/schedule.test.mjs`) and a
 headless Chromium e2e run (`tests/e2e.mjs`, Pixel 7, notifications mocked) covering the finish flow,
 notifications and the denied fallback, offline use, installability, the rest timer (fake clock), swaps,
-progression, settings, tracker/chart/history, export/import, v1 migration, deload and calorie goals.
+progression, settings, tracker/chart/history, export/import, v1 migration, deload, calorie goals and
+rest days (a fake Wednesday). Browser tests otherwise run on a Monday (`tests/training-day.mjs`) so
+they see a training day whatever the real date.
 `node tests/shots.mjs` retakes `screenshots/` and checks a real, unmocked notification.
 
 ## Friends' copies (/ben/, /laychan/)

@@ -1,6 +1,7 @@
 // Friends' copies (/ben/, /laychan/): own password, own icon + manifest, own service worker scope, own storage.
 // Local by default; `BASE=https://zanegear1-jpg.github.io/get-jacked/ node tests/friends.mjs` runs it against the live site.
 import { chromium, devices } from "playwright";
+import { onTrainingDay, mondayNow } from "./training-day.mjs";
 import { spawn } from "node:child_process";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -31,6 +32,7 @@ const ART = {
   jacked: { dir: "themes/jacked/", top: "Get Jacked", built: "Get Jacked · Built tuff", pill: "BULK" }, // Zane's app + default for new copies: no vehicle
 }; // the test needs the real ones; the app only has the hashes
 const browser = await chromium.launch({ channel: "chromium" });
+const rawContext = onTrainingDay(browser); // pages run on a Monday (a training day); see tests/training-day.mjs
 
 const unlock = async (page, pw) => { await page.fill("#lock-pw", pw); await page.click("#lock-go"); };
 try {
@@ -243,6 +245,32 @@ try {
     assert.equal((await page.textContent("#start")).trim(), "Resume workout"); assert.ok(await page.$(".fx-start.resume"));
     await ctx.close();
   }
+  // rest day on the themed home (a Wednesday on the 4-day plan): every copy shows 'Rest day', the recovery line, Next + weekday,
+  // 'Train anyway', the themed M–S strip inside the hero, and the Built Different banner still fits above the nav
+  for (const f of COPIES.filter(falconLook)) {
+    const ctx = await rawContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }), page = await ctx.newPage();
+    await page.clock.install({ time: new Date(2026, 9, 28, 9, 0).getTime() });
+    await page.goto(BASE + f.path); await unlock(page, f.pw); await page.waitForSelector("#bw");
+    await page.fill("#bw", "90"); await page.selectOption("#days", "4"); await page.selectOption("#equip", "full"); await page.click("#ob-go"); await page.waitForSelector("#start");
+    for (const [w, ht] of [[390, 844], [360, 780]]) {
+      await page.setViewportSize({ width: w, height: ht }); await page.evaluate(async () => { scrollTo(0, 0); await document.fonts.ready; }); await page.waitForTimeout(150);
+      const r = await page.evaluate(() => { const hero = document.querySelector(".fx-hero").getBoundingClientRect(), wk = document.querySelector(".fx-hero #week-strip");
+        return { h1: document.querySelector(".fx-hero h1").textContent, line: document.querySelector("#rest-line")?.textContent, next: document.querySelector("#rest-next")?.textContent,
+          start: document.querySelector("#start").textContent.trim(), chips: !!document.querySelector(".fx-chips"), rest: !!document.querySelector(".fx-home.fx-restday"),
+          strip: wk && [...wk.querySelectorAll("li")].map((li) => (li.classList.contains("wk-on") ? "T" : "r") + (li.classList.contains("wk-now") ? "*" : "")).join(" "),
+          inHero: !!wk && (() => { const b = wk.getBoundingClientRect(); return b.top >= hero.top && b.bottom <= hero.bottom && b.left >= hero.left && b.right <= hero.right; })(),
+          clearTxt: (() => { const b = wk.getBoundingClientRect(); return [...document.querySelectorAll(".fx-hero h1, #rest-line, #rest-next")].every((x) => { const t = x.getBoundingClientRect(); return t.bottom <= b.top || t.top >= b.bottom || t.right <= b.left || t.left >= b.right; }); })(),
+          built: document.querySelector(".fx-built").getBoundingClientRect().bottom, nav: document.querySelector("#nav").getBoundingClientRect().top }; });
+      assert.equal(r.h1, "Today: Rest day", `${f.slug}`); assert.equal(r.line, "Recover and eat big: hit your protein and calories.");
+      assert.equal(r.next, "Next: Upper A on Thursday"); assert.equal(r.start, "Train anyway: Upper A"); assert.ok(!r.chips && r.rest, "rest layout replaces the chips");
+      assert.equal(r.strip, "T T r* T T r r"); assert.ok(r.inHero, `${f.slug}: strip inside the hero at ${w}`); assert.ok(r.clearTxt, `${f.slug}: strip clear of the hero text at ${w}`);
+      assert.ok(r.built <= r.nav, `${f.slug}: banner above the nav on a rest day at ${w}x${ht} (${r.built} > ${r.nav})`);
+    }
+    await page.click("#start"); await page.waitForSelector(".exscreen"); await page.click('#nav a[href="#/today"]'); await page.waitForSelector("#start");
+    assert.equal((await page.textContent("#start")).trim(), "Resume workout"); assert.equal(await page.textContent(".fx-hero h1"), "Today: Upper A");
+    await ctx.close();
+  }
+  ok(`${COPIES.filter(falconLook).map((f) => f.slug).join("/")} rest day (Wed): 'Today: Rest day', recovery line, 'Next: Upper A on Thursday', 'Train anyway: Upper A' starts it, themed M–S strip inside the hero (clear of the text), banner above the nav at 390x844 + 360x780`);
   // copies with "theme": "none" (and Zane's root, if defaultTheme were "") keep the stock Today page
   for (const { slug: who, path, pw } of COPIES.filter((c) => !c.theme)) {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }), page = await ctx.newPage();

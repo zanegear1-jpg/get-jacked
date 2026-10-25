@@ -3,6 +3,7 @@ import { EVIDENCE as E, dailyTargets, postWorkout, notificationText, e1rm, autor
 import { MUSCLES, LIBRARY, EQUIPMENT, DAYS, SET_RANGE, buildProgram, muscleFrequency, muscleOrdinal, alternatives, startWeeklySets } from "./program.js";
 import { sendPostWorkout, ensurePermission, permissionState } from "./notify.js";
 import { fresh, migrate } from "./state.js";
+import { WEEKDAYS, WEEK_SHORT, defaultSchedule, cleanSchedule, checkSchedule, scheduleFor, sameSchedule, isTrainingDay, nextTrainingDay, whenText, backToBack, backToBackText, weekStrip } from "./schedule.js";
 import { thumbHTML, heroHTML, photoHTML } from "./media.js";
 import { clampIndex, exerciseStatus, swipeDir, positionLabel } from "./stepper.js";
 import { CONFIG } from "./config.js";
@@ -102,12 +103,25 @@ window.addEventListener("hashchange", render);
 const go = (r) => { if (location.hash === "#/" + r) render(); else location.hash = "#/" + r; };
 
 const opt = (val, label, cur) => `<option value="${esc(val)}" ${String(cur) === String(val) ? "selected" : ""}>${esc(label)}</option>`;
-function profileForm(p = {}) {
+const dayList = (sched) => cleanSchedule(sched).map((d) => WEEK_SHORT[d]).join(", ");
+function trainDaysRow(sched) {
+  return `<div class="td" id="td-wrap"><span class="td-l" id="td-l">Training days</span>
+  <div class="td-row" role="group" aria-labelledby="td-l">${WEEK_SHORT.map((n, i) => {
+    const on = sched.includes(i);
+    return `<button type="button" class="td-day${on ? " on" : ""}" data-d="${i}" aria-pressed="${on}" aria-label="${WEEKDAYS[i]}">${n}</button>`;
+  }).join("")}</div>
+  <p class="small" id="td-msg" aria-live="polite"></p>
+  <p class="small warn" id="td-warn" hidden></p>
+  <button type="button" class="small" id="td-reset">Reset to recommended</button></div>`;
+}
+function profileForm(p = {}, { days: daysRow = "hint" } = {}) {
+  const sched = scheduleFor({ days: p.days ?? 4, schedule: p.schedule });
   return `
   <label for="bw">Bodyweight (kg) *</label>
   <input id="bw" type="number" inputmode="decimal" min="30" max="250" step="0.1" value="${esc(p.bodyweightKg ?? "")}" required>
   <label for="days">Training days per week</label>
   <select id="days">${DAYS.map((d) => opt(d, { 3: "3 days: full body", 4: "4 days: upper / lower", 5: "5 days: upper / lower + push / pull / legs", 6: "6 days: push / pull / legs ×2" }[d], p.days ?? 4)).join("")}</select>
+  ${daysRow === "row" ? trainDaysRow(sched) : `<p class="small muted" id="td-hint">Training days: ${dayList(sched)}. You can change them in Settings.</p>`}
   <label for="equip">Equipment</label>
   <select id="equip">${Object.entries(EQUIPMENT).map(([k, v]) => opt(k, v.label, p.equipment ?? "full")).join("")}</select>
   <label for="exp">Training experience</label>
@@ -126,7 +140,10 @@ function readProfile() {
   const maint = num("#maint"), goal = num("#goal");
   if (maint !== null && (maint < 1200 || maint > 7000)) return { error: "Maintenance calories should be 1200–7000, or blank." };
   if (goal !== null && (goal < 1200 || goal > 8000)) return { error: "Calorie goal should be 1200–8000, or blank." };
-  return { profile: { bodyweightKg: bw, days: +$("#days").value, equipment: $("#equip").value, experience: $("#exp").value, maintenanceKcal: maint, calorieGoal: goal } };
+  const days = +$("#days").value, row = $("#td-wrap");
+  const schedule = row ? [...row.querySelectorAll(".td-day.on")].map((b) => +b.dataset.d) : defaultSchedule(days);
+  if (row) { const c = checkSchedule(schedule, days); if (!c.ok) return { error: c.message }; }
+  return { profile: { bodyweightKg: bw, days, equipment: $("#equip").value, experience: $("#exp").value, maintenanceKcal: maint, calorieGoal: goal, schedule: cleanSchedule(schedule) } };
 }
 
 function onboarding() {
@@ -145,6 +162,7 @@ function onboarding() {
   <p class="small muted" style="margin-top:14px">New phone? <label class="btn small-btn" for="import">Restore from a backup</label></p>
   <input id="import" type="file" accept="application/json,.json" hidden><p id="bk-msg" class="small"></p>`;
   $("#import").onchange = (e) => importBackup(e, () => go("today"));
+  $("#days").onchange = () => { $("#td-hint").textContent = `Training days: ${dayList(defaultSchedule(+$("#days").value))}. You can change them in Settings.`; };
   const showState = () => { $("#ob-notif-state").textContent = { granted: "On", denied: "Blocked: you'll get an in-app card instead", default: "", unsupported: "Not supported here: in-app card instead" }[permissionState()]; };
   showState();
   $("#ob-notif").onclick = async () => { await ensurePermission(); showState(); };
@@ -200,29 +218,42 @@ const planFor = (idx) => { const p = program(), i = idx % p.length; return plann
 // Xplosiv supplement clearance page: the red X floated at the top right of the exercise list, level with exercises 2-5
 // (the list text wraps around it, so long names never run under it). Opens outside the app (new tab / the phone's browser).
 const XPLOSIV_URL = "https://xplosiv.nz/clearance.html";
+/** Mon–Sun strip for Today: training days filled, rest days dim, today ringed. Same markup on every copy (themes style it). */
+function weekStripHTML(sched, now) {
+  return `<ol class="wk" id="week-strip" aria-label="This week's training and rest days">${weekStrip(sched, now).map((d) =>
+    `<li class="${d.train ? "wk-on" : "wk-off"}${d.today ? " wk-now" : ""}"${d.today ? ' aria-current="date"' : ""}><span aria-hidden="true">${d.letter}</span><i class="vh">${d.name}: ${d.train ? "training" : "rest"}${d.today ? " (today)" : ""}</i></li>`).join("")}</ol>`;
+}
+const REST_LINE = "Recover and eat big: hit your protein and calories.";
 function today() {
   const s = session(), plan = planFor(S.nextSession);
+  // Rest day = today isn't one of the training days and no workout is in progress. The rotation is unchanged: the next
+  // session is still S.nextSession, it just waits for the next training day (or "Train anyway" starts it now).
+  const now = new Date(), sched = scheduleFor(S.profile), restDay = !S.active && !isTrainingDay(sched, now);
+  const rest = restDay ? { line: REST_LINE, next: s.name, when: whenText(nextTrainingDay(sched, now)) } : null;
+  const strip = weekStripHTML(sched, now);
   const totalSets = Object.values(plan).reduce((a, b) => a + b, 0);
   const meta = `<div class="muted small">Next session · ${S.profile.days} days/week · ${esc(EQUIPMENT[S.profile.equipment]?.label)}</div>`;
   const big = `<div class="big">${esc(s.name)} · ${CONFIG.theme ? `<span class="hs">${totalSets} hard sets</span>` : `${totalSets} hard sets`}</div>`;
   const xp = `<span class="xpw"><a class="xp" id="xplosiv" href="${XPLOSIV_URL}" target="_blank" rel="noopener" aria-label="Xplosiv clearance deals"><img src="${CONFIG.assetBase}img/xplosiv-x.svg" alt="" width="101" height="76"></a></span>`;
   const list = `<ul class="small exlist">${s.exercises.map((e) => `<li>${esc(e.name)} <span class="muted">${plan[e.id]}×${e.reps[0]}–${e.reps[1]}</span></li>`).join("")}</ul>`;
-  const startLabel = S.active ? "Resume workout" : "Start workout";
+  const startLabel = S.active ? "Resume workout" : restDay ? `Train anyway: ${esc(s.name)}` : "Start workout";
   const ios = !isStandalone() && isIOS() ? `<p class="small muted">iPhone: Share → Add to Home Screen to install.</p>` : "";
   // A themed friend copy (themes/<name>/theme.js) may lay out the Today page itself; it gets the same pieces and the
   // same #start button wiring below. Unthemed copies never define GJ_THEME, so their markup is unchanged.
   const themed = globalThis.GJ_THEME?.today;
   const ex0 = s.exercises[0];
   view.innerHTML = themed ? themed({
-    esc, name: s.name, totalSets, startLabel, active: !!S.active,
+    esc, name: s.name, totalSets, startLabel, active: !!S.active, rest, strip,
     first: ex0 && { sets: plan[ex0.id], reps: ex0.reps, rir: inDeload() ? "3–4" : "1–2", restMin: Math.round(restSeconds(ex0) / 30) / 2 },
     deload: deloadCard(), session: `<div class="card hero">${meta}${big}${xp}${list}</div>`,
     sessionNoX: `<div class="card hero">${meta}${big}${list}</div>`, xplosiv: { url: XPLOSIV_URL, img: `${CONFIG.assetBase}img/xplosiv-x.svg` },
     week: weekSummaryLine(), nutrition: nutritionCard(), ios,
   }) : `
-  <h1>Today: ${esc(s.name)}</h1>
+  <h1>${rest ? "Rest day" : `Today: ${esc(s.name)}`}</h1>
   ${deloadCard()}
   <div class="card hero">
+    ${strip}
+    ${rest ? `<p class="rd-line" id="rest-line">${rest.line}</p><p class="rd-next" id="rest-next">Next: <b>${esc(rest.next)}</b> ${rest.when}</p>` : ""}
     ${meta}
     ${big}
     ${xp}
@@ -704,7 +735,7 @@ function settings() {
   const p = S.profile;
   view.innerHTML = `
   <h1>Settings</h1>
-  <div class="card">${profileForm(p)}<p id="st-err" class="err" hidden></p>
+  <div class="card">${profileForm(p, { days: "row" })}<p id="st-err" class="err" hidden></p>
     <button class="primary" id="st-save" style="margin-top:12px">Save</button> <span id="st-ok" class="small ok"></span></div>
   <div class="card"><strong>Weigh-in</strong>
     <p class="small muted">Weigh yourself a few mornings a week. Weekly averages keep your gain at ${E.gainMinPctPerWeek}–${E.gainMaxPctPerWeek}% a week.</p>
@@ -724,12 +755,30 @@ function settings() {
   <div class="row"><button id="lock-app">Lock app</button></div>
   <p><button class="small" id="reset">Reset all data</button></p>`;
   $("#lock-app").onclick = () => { localStorage.removeItem(LOCK_KEY); go("today"); };
+  // Training days: the count must match the split (Save is blocked with a clear message otherwise); sessions that train
+  // the same muscles on consecutive days only get a gentle warning. Changing the split picks its recommended days.
+  const tdShow = (sched) => { for (const b of view.querySelectorAll(".td-day")) { const on = sched.includes(+b.dataset.d); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); } tdCheck(); };
+  const tdPicked = () => [...view.querySelectorAll(".td-day.on")].map((b) => +b.dataset.d);
+  function tdCheck() {
+    const days = +$("#days").value, sched = tdPicked(), c = checkSchedule(sched, days), msg = $("#td-msg"), warn = $("#td-warn");
+    const rec = sameSchedule(sched, defaultSchedule(days));
+    msg.className = "small " + (c.ok ? "muted" : "err");
+    msg.textContent = c.ok ? `${c.count} of ${c.need} days picked${rec ? " (recommended)" : ""}.` : c.message;
+    const text = c.ok ? backToBackText(backToBack(buildProgram({ days, equipment: $("#equip").value, experience: $("#exp").value, swaps: S.swaps }), sched)) : "";
+    warn.textContent = text; warn.hidden = !text;
+    $("#td-reset").disabled = rec;
+  }
+  view.querySelectorAll(".td-day").forEach((b) => { b.onclick = () => { b.classList.toggle("on"); b.setAttribute("aria-pressed", b.classList.contains("on")); $("#st-ok").textContent = ""; tdCheck(); }; });
+  $("#td-reset").onclick = () => tdShow(defaultSchedule(+$("#days").value));
+  $("#days").onchange = () => tdShow(defaultSchedule(+$("#days").value));
+  tdCheck();
   $("#st-save").onclick = () => {
     const r = readProfile(); if (r.error) { $("#st-err").textContent = r.error; $("#st-err").hidden = false; return; }
     const np = r.profile, changed = np.days !== p.days || np.equipment !== p.equipment || np.experience !== p.experience;
     $("#st-err").hidden = true; S.profile = np;
     if (np.days !== p.days) S.nextSession = 0;
-    save(); $("#st-ok").textContent = changed ? `Saved. New program: ${program().map((s) => s.name).join(", ")}` : "Saved";
+    const daysChanged = !sameSchedule(np.schedule, scheduleFor(p));
+    save(); $("#st-ok").textContent = (changed ? `Saved. New program: ${program().map((s) => s.name).join(", ")}` : "Saved") + (daysChanged ? `. Training days: ${dayList(np.schedule)}` : "");
   };
   $("#wi-add").onclick = () => {
     const kg = parseFloat($("#wi").value); if (!validBodyweight(kg)) { $("#wi-msg").textContent = "Enter 30–250 kg."; return; }

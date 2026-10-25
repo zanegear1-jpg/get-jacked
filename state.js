@@ -1,6 +1,7 @@
 // Saved-state shape + migration. Storage key stays "massplan.v1" so nobody loses data; `schema` tracks the shape.
 import { clampIndex } from "./stepper.js";
 import { LIBRARY, START_WEEKLY_SETS, MUSCLES } from "./program.js";
+import { scheduleFor } from "./schedule.js";
 
 export const SCHEMA = 2;
 export function fresh() {
@@ -22,6 +23,9 @@ export function migrate(raw) {
   for (const m of Object.keys(S.weeklySets)) if (!(m in MUSCLES)) delete S.weeklySets[m];
   S.swaps ||= {}; S.volAdjWeek ||= {};
   if (S.profile) S.profile = { days: 4, equipment: "full", experience: "intermediate", ...S.profile };
+  // Training days (Mon = 0): profiles saved before rest days existed, or whose days no longer match the plan, get the
+  // recommended schedule for their day count. Nothing else in the profile changes.
+  if (S.profile) S.profile.schedule = scheduleFor(S.profile);
   // v1 history: add a session name.
   S.history = S.history.filter((h) => h && h.exercises).map((h) => ({ ...h, name: h.name || OLD_NAMES[h.session] || h.session }));
   // v1 active workout: no session snapshot. Rebuild it from the exercise ids it holds.

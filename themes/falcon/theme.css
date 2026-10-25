@@ -148,3 +148,17 @@ body.theme-falcon:has(.exscreen) .top .pill::after{content:"G6E";font-size:13px}
 .theme-falcon .sugg{color:var(--accent)}.theme-falcon .sugg.up{color:var(--ok)}
 .theme-falcon .swap-btn{background:#0d0d0d;border:1px solid #5c5c5c;border-radius:12px;min-height:54px;font-size:17px;font-weight:600;margin:12px 0}
 .theme-falcon .ov-pick{background:#1a1a1a}
+
+/* ---------- Training / rest days: week strip in the hero's lower-left corner (no extra height, so the banner still
+   fits the first screen), rest-day text in place of the chips, Settings day toggles ---------- */
+.fx-hero .wk{position:absolute;left:4.4cqw;bottom:4.2cqw;width:58cqw;margin:0;gap:1.1cqw}
+.fx-hero .wk li{height:6.4cqw;border-radius:1.6cqw;font:800 3cqw/1 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;border:1px solid #ffffff26;background:linear-gradient(#1a1c21e6,#0d0e11e6);color:#8e96a5;box-shadow:0 .3cqw .8cqw #0008}
+.fx-hero .wk li.wk-on{background:linear-gradient(#ffb02e,#ff7900);border-color:#ffb02e;color:#140a00}
+.fx-hero .wk li.wk-now{outline:.6cqw solid #fff;outline-offset:.4cqw}
+.fx-rd-line,.fx-rd-next{margin:1.8cqw 0 0;padding:1.2cqw 2cqw;border-radius:1.3cqw;background:linear-gradient(#1a1c21f2,#0d0e11f2);border:1px solid #ffffff22;box-shadow:0 .3cqw .8cqw #0008;color:#f5f6f8;font:700 3.1cqw/1.3 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;width:max-content;max-width:58cqw}
+.fx-rd-next{font-weight:800;text-transform:uppercase;letter-spacing:.02em;font-size:2.9cqw}
+.fx-rd-next b{color:#ff9a0c}
+.theme-falcon .td-day{background:#161616;border:1px solid var(--line);color:#c9ced6}
+.theme-falcon .td-day.on{background:#2a1a0e;border:2px solid var(--accent);color:#ff9a3c}
+.theme-falcon #td-reset{background:#0d0d0d;border:1px solid #5c5c5c}
+.theme-falcon #td-reset:disabled{opacity:.5}

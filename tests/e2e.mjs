@@ -1,6 +1,7 @@
 // Headless end-to-end test (Chromium, Pixel 7 emulation, served on localhost = secure context).
 // Notification is mocked; ServiceWorkerRegistration.showNotification is spied on.
 import { chromium, devices } from "playwright";
+import { onTrainingDay, mondayNow } from "./training-day.mjs";
 import { spawn } from "node:child_process";
 import assert from "node:assert/strict";
 import { postWorkout } from "../calc.js";
@@ -61,6 +62,7 @@ async function runFinish(browser, grant) {
 }
 
 const browser = await chromium.launch({ channel: "chromium" });
+const rawContext = onTrainingDay(browser); // pages run on a Monday (a training day); see tests/training-day.mjs
 try {
   // 1) permission granted -> real SW notification with the computed numbers
   {
@@ -182,12 +184,12 @@ try {
 
   // ---------- new features ----------
   const fresh = async (opts = {}) => {
-    const ctx = await browser.newContext({ ...devices["Pixel 7"], acceptDownloads: true });
+    const ctx = await (opts.clock ? rawContext : browser.newContext)({ ...devices["Pixel 7"], acceptDownloads: true });
     await ctx.addInitScript(mock("denied"));
     const page = await ctx.newPage();
     const errors = []; page.on("pageerror", (e) => errors.push(String(e))); page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
     page.on("dialog", (d) => d.accept());
-    if (opts.clock) await page.clock.install();
+    if (opts.clock) await page.clock.install({ time: opts.time ?? mondayNow() });
     return { ctx, page, errors };
   };
   const state = (page) => page.evaluate(() => JSON.parse(JSON.stringify(window.__massplan.state)));
@@ -388,6 +390,11 @@ try {
     assert.equal(await page.locator("#chart circle").count(), 1);
     ok("weekly tracker shows actual done vs target; history lists 3 workouts; e1RM chart renders");
     await page.goto(BASE + "#/settings"); await page.waitForSelector("#export");
+    // custom training days (the last N days of the week) so the round trip proves the schedule is in the backup
+    const nDays = (await state(page)).profile.days, custom = [6, 5, 4, 3, 2, 1].slice(0, nDays).sort();
+    for (let d = 0; d < 7; d++) if ((await page.getAttribute(`.td-day[data-d="${d}"]`, "aria-pressed") === "true") !== custom.includes(d)) await page.click(`.td-day[data-d="${d}"]`);
+    await page.click("#st-save"); await page.waitForFunction(() => document.querySelector("#st-ok").textContent.includes("Training days"));
+    assert.deepEqual((await state(page)).profile.schedule, custom);
     const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#export")]);
     const file = await dl.path(); const exported = JSON.parse(await (await import("node:fs/promises")).readFile(file, "utf8"));
     assert.equal(exported.app, "get-jacked"); assert.equal(exported.data.history.length, 3);
@@ -397,9 +404,10 @@ try {
     await page.setInputFiles("#import", file); await page.waitForSelector("#start");
     const back = await state(page);
     assert.deepEqual(back.history, exported.data.history); assert.deepEqual(back.weeklySets, exported.data.weeklySets); assert.deepEqual(back.profile, exported.data.profile);
+    assert.deepEqual(exported.data.profile.schedule, custom); assert.deepEqual(back.profile.schedule, custom, "training days restored from the backup");
     await page.reload(); await page.waitForSelector("#start"); assert.equal((await state(page)).history.length, 3);
     assert.equal(errors.length, 0, errors.join("\n"));
-    ok("export -> reset -> import JSON round-trips; bad file rejected");
+    ok("export -> reset -> import JSON round-trips (custom training days included); bad file rejected");
     await ctx.close();
   }
 
@@ -418,7 +426,8 @@ try {
     const s = await state(page);
     assert.equal(s.schema, 2); assert.equal(s.history.length, 4); assert.equal(s.weeklySets.chest, 15); assert.equal(s.profile.days, 4);
     assert.equal(await page.textContent("h1"), "Today: Lower A");
-    ok("v1 saved data migrates in place (same massplan.v1 key)");
+    assert.deepEqual(s.profile.schedule, [0, 1, 3, 4], "no saved schedule -> the recommended 4-day one");
+    ok("v1 saved data migrates in place (same massplan.v1 key; recommended training days added)");
     assert.ok(await page.isVisible("#deload-card"));
     const setsBefore = parseInt((await page.textContent(".hero .big")).split("·")[1]);
     await page.click("#deload-start"); await page.waitForSelector("#deload-on");
@@ -431,6 +440,65 @@ try {
     assert.ok(Math.abs(t[1] * 4 + t[2] * 4 + t[3] * 9 - t[0]) <= 3, `macros add up ${t}`);
     assert.equal(errors.length, 0, errors.join("\n"));
     ok(`calorie goal below maintenance warns; macros add up (${t[0]} kcal = ${t[1]}P/${t[2]}C/${t[3]}F)`);
+    await ctx.close();
+  }
+
+  // 7) training days / rest days: rest-day Today (faked Wednesday), Train anyway, rotation unchanged, Settings row
+  {
+    const WED = new Date(2026, 9, 28, 9, 0).getTime(), THU = new Date(2026, 9, 29, 9, 0).getTime();
+    const { ctx, page, errors } = await fresh({ clock: true, time: WED });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await onboard(page, { bw: "90", days: 4, equip: "full" });
+    assert.deepEqual((await state(page)).profile.schedule, [0, 1, 3, 4], "4-day default: Mon, Tue, Thu, Fri");
+    const home = () => page.evaluate(() => ({
+      title: document.querySelector("h1").textContent.replace(/\s+/g, " ").trim(), line: document.querySelector("#rest-line")?.textContent,
+      next: document.querySelector("#rest-next")?.textContent.replace(/\s+/g, " ").trim(), start: document.querySelector("#start").textContent.trim(),
+      strip: [...document.querySelectorAll("#week-strip li")].map((li) => (li.classList.contains("wk-on") ? "T" : "r") + (li.classList.contains("wk-now") ? "*" : "")).join(" "),
+      letters: [...document.querySelectorAll("#week-strip li > span")].map((x) => x.textContent).join(""),
+      fit: (document.querySelector(".fx-built")?.getBoundingClientRect().bottom ?? 0) <= document.querySelector("#nav").getBoundingClientRect().top,
+      chips: !!document.querySelector(".fx-chips"),
+    }));
+    let h = await home();
+    assert.equal(h.title, "Today: Rest day"); assert.equal(h.line, "Recover and eat big: hit your protein and calories.");
+    assert.equal(h.next, "Next: Upper A on Thursday"); assert.equal(h.start, "Train anyway: Upper A");
+    assert.equal(h.letters, "MTWTFSS"); assert.equal(h.strip, "T T r* T T r r"); assert.equal(h.chips, false); assert.ok(h.fit, "banner above the nav at 390x844");
+    await page.setViewportSize({ width: 360, height: 780 }); assert.ok((await home()).fit, "banner above the nav at 360x780");
+    // a missed day doesn't skip anything: on Thursday it's still Upper A
+    await page.clock.setSystemTime(THU); await page.goto(BASE + "#/progress"); await page.goto(BASE + "#/today"); await page.waitForSelector("#start");
+    h = await home(); assert.equal(h.title, "Today: Upper A"); assert.equal(h.start, "Start workout"); assert.equal(h.strip, "T T r T* T r r"); assert.equal(h.chips, true);
+    // Train anyway on a rest day: starts the next session, the rotation stays in order
+    await page.clock.setSystemTime(WED); await page.goto(BASE + "#/progress"); await page.goto(BASE + "#/today"); await page.waitForSelector("#start");
+    await page.click("#start"); await page.waitForSelector("#ex-pos");
+    let st = await state(page); assert.equal(st.active.session.name, "Upper A"); assert.equal(st.nextSession, 0);
+    await page.goto(BASE + "#/today"); await page.waitForSelector("#start");
+    h = await home(); assert.equal(h.title, "Today: Upper A", "a workout in progress shows as today's session"); assert.equal(h.start, "Resume workout");
+    ok("rest day (Wed, 4-day plan): 'Today: Rest day', recovery line, 'Next: Upper A on Thursday', 'Train anyway: Upper A' starts it, M–S strip (today ringed), banner still fits 390x844 + 360x780; Thursday = Upper A (nothing skipped)");
+
+    // Settings: the Training days row, count must match, Reset to recommended, back-to-back warning (gentle, saves)
+    await page.goto(BASE + "#/settings"); await page.waitForSelector("#td-wrap");
+    const pressed = () => page.$$eval(".td-day", (b) => b.filter((x) => x.getAttribute("aria-pressed") === "true").map((x) => +x.dataset.d));
+    assert.deepEqual(await pressed(), [0, 1, 3, 4]); assert.match(await page.textContent("#td-msg"), /4 of 4 days picked \(recommended\)/);
+    assert.equal(await page.isDisabled("#td-reset"), true);
+    await page.click('.td-day[data-d="2"]');
+    assert.match(await page.textContent("#td-msg"), /pick exactly 4 days \(you've picked 5 days\)/);
+    await page.click("#st-save"); assert.equal(await page.isVisible("#st-err"), true); assert.match(await page.textContent("#st-err"), /pick exactly 4 days/);
+    assert.deepEqual((await state(page)).profile.schedule, [0, 1, 3, 4], "a mismatched pick isn't saved");
+    await page.click("#td-reset"); assert.deepEqual(await pressed(), [0, 1, 3, 4]);
+    await page.click('.td-day[data-d="1"]'); await page.click('.td-day[data-d="2"]'); // Mon, Wed, Thu, Fri
+    assert.equal(await page.isVisible("#td-warn"), false, "upper/lower alternate: no back-to-back warning");
+    await page.click("#st-save"); assert.match(await page.textContent("#st-ok"), /Training days: Mon, Wed, Thu, Fri/);
+    assert.deepEqual((await state(page)).profile.schedule, [0, 2, 3, 4]);
+    await page.goto(BASE + "#/today"); await page.waitForSelector("#start"); assert.equal((await home()).strip, "T r T* T T r r", "Wednesday is now a training day");
+    await page.goto(BASE + "#/settings"); await page.waitForSelector("#td-wrap");
+    await page.selectOption("#days", "3"); assert.deepEqual(await pressed(), [0, 2, 4], "3 days -> Mon, Wed, Fri"); assert.equal(await page.isVisible("#td-warn"), false);
+    await page.click('.td-day[data-d="2"]'); await page.click('.td-day[data-d="1"]'); // Mon, Tue, Fri
+    assert.equal(await page.isVisible("#td-warn"), true);
+    assert.match(await page.textContent("#td-warn"), /Full body A \(Mon\) then Full body B \(Tue\) both train chest, back, quads/);
+    await page.click("#st-save"); assert.equal(await page.isVisible("#st-err"), false, "the warning doesn't block saving");
+    st = await state(page); assert.deepEqual(st.profile.schedule, [0, 1, 4]); assert.equal(st.profile.days, 3); assert.equal(st.nextSession, 0);
+    for (const [d, want] of [["5", [0, 1, 3, 4, 5]], ["6", [0, 1, 2, 3, 4, 5]]]) { await page.selectOption("#days", d); assert.deepEqual(await pressed(), want, `${d} days default`); }
+    assert.equal(errors.length, 0, errors.join("\n"));
+    ok("Settings Training days: 7 toggles, wrong count blocks Save with a clear message, Reset to recommended, custom days saved, 3/5/6-day defaults, back-to-back warning (Full body Mon+Tue) is gentle");
     await ctx.close();
   }
 } finally {

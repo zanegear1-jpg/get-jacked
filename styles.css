@@ -110,3 +110,15 @@ body.locked .top .pill,body.locked #install-btn{display:none}
 .xp{display:block;pointer-events:auto;border-radius:10px;-webkit-tap-highlight-color:transparent;transition:transform .08s ease-out}
 .xp img{display:block;width:auto;height:clamp(70px,19.5vw,80px);filter:drop-shadow(0 2px 5px #0009)}
 .xp:active{transform:scale(.92)}.xp:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+/* training days / rest days */
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+.wk{list-style:none;display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:0 0 10px;padding:0}
+.wk li{display:flex;align-items:center;justify-content:center;height:26px;border-radius:8px;font-size:12px;font-weight:800;border:1px solid var(--b);color:var(--muted)}
+.wk li.wk-on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.wk li.wk-now{outline:2px solid var(--fg);outline-offset:1px}
+.rd-line{margin:0 0 4px}.rd-next{margin:0 0 6px;font-size:18px}
+.td{margin-top:4px}.td-l{display:block;margin:10px 0 6px;font-weight:600}
+.td-row{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.td-day{min-height:44px;border:1px solid var(--b);padding:6px 0;font-size:13.5px;font-weight:700;border-radius:10px}
+.td-day.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.td #td-msg{margin:6px 0 4px}.td #td-warn{margin:4px 0 6px}
