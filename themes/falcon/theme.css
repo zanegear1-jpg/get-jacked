@@ -162,9 +162,10 @@ body.theme-falcon:has(.exscreen) .top .pill::after{content:"G6E";font-size:13px}
 .theme-falcon .td-day.on{background:#2a1a0e;border:2px solid var(--accent);color:#ff9a3c}
 .theme-falcon #td-reset{background:#0d0d0d;border:1px solid #5c5c5c}
 .theme-falcon #td-reset:disabled{opacity:.5}
-/* rest day: week strip then the Next pill, stacked in the hero's lower-left corner (same spot as the training-day strip) */
-/* kept low and compact so the strip sits under the art's lowest point on the left (Ben's front wheel) */
-.fx-hero .fx-rd-foot{position:absolute;left:4.4cqw;bottom:1.8cqw;width:58cqw;display:flex;flex-direction:column;align-items:flex-start}
-.fx-hero .fx-rd-foot .wk{position:static;width:100%}
-.fx-hero .fx-rd-foot .wk li{height:5.8cqw}
-.fx-hero .fx-rd-foot .fx-rd-next{margin-top:1.6cqw;padding-top:.9cqw;padding-bottom:.9cqw}
+/* rest day: week strip in the hero's bottom-right corner (under the car / badge), Next pill just below the hero, left-aligned
+   with the Train anyway button; the gap above the button shrinks so the bottom banner still fits on the first screen */
+.fx-restday .fx-hero .wk{left:auto;right:3.2cqw;bottom:1.6cqw;width:50cqw;gap:1cqw}
+.fx-restday .fx-hero .wk li{height:5.4cqw;font-size:2.8cqw}
+.fx-restday>.fx-rd-next{margin:10px 22px 0;max-width:calc(100% - 44px)}
+.theme-falcon .fx-restday>.fx-start{margin-top:10px}
+@media (max-width:380px){.fx-restday>.fx-rd-next{margin:8px 14px 0;max-width:calc(100% - 28px)}.theme-falcon .fx-restday>.fx-start{margin-top:8px}}
